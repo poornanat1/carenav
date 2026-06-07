@@ -1,0 +1,43 @@
+# CareNav local stack. `docker compose up` brings up Postgres (pgvector) + the app.
+# Day-1 scaffold: db + app. RAG/frontend services are added in later milestones.
+
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: carenav-db
+    environment:
+      POSTGRES_USER: carenav
+      POSTGRES_PASSWORD: carenav
+      POSTGRES_DB: carenav
+    ports:
+      - "5432:5432"
+    volumes:
+      - carenav-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U carenav -d carenav"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: carenav-app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Inside the compose network the DB host is `db`, not localhost.
+      DATABASE_URL: postgresql+psycopg://carenav:carenav@db:5432/carenav
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    # Day-1: just keep the container alive so you can `docker compose exec app make data`.
+    # Later milestones flip this to the uvicorn serving command.
+    command: ["sleep", "infinity"]
+
+volumes:
+  carenav-pgdata:
