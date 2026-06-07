@@ -1,0 +1,39 @@
+{
+  "_doc": "Hand-authored benefit rules — the single hand-built artifact (spec §5.2 step 3). Kept minimal and documented. `key` is a service_code or a category; set is_category=true for categories. copay is a flat dollar amount; coinsurance (0-1) applies after deductible when copay is null. These are illustrative, NOT a real plan's terms.",
+  "_plan_year": 2026,
+  "rules": [
+    {
+      "plan_id": "PLN-BRONZE",
+      "items": [
+        {"key": "office_visit", "is_category": true, "covered": true, "copay": 40, "coinsurance": null, "prior_auth_required": false, "notes": "Primary care office visit."},
+        {"key": "specialist_visit", "is_category": true, "covered": true, "copay": 75, "coinsurance": null, "prior_auth_required": false, "notes": "In-network specialist."},
+        {"key": "MRI", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.40, "prior_auth_required": true, "notes": "Advanced imaging; prior auth required."},
+        {"key": "lab_panel", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.40, "prior_auth_required": false, "notes": "Diagnostic labs."},
+        {"key": "preventive_visit", "is_category": true, "covered": true, "copay": 0, "coinsurance": null, "prior_auth_required": false, "notes": "Preventive care covered at 100%."},
+        {"key": "emergency_room", "is_category": true, "covered": true, "copay": 500, "coinsurance": null, "prior_auth_required": false, "notes": "ER copay waived if admitted."}
+      ]
+    },
+    {
+      "plan_id": "PLN-SILVER",
+      "items": [
+        {"key": "office_visit", "is_category": true, "covered": true, "copay": 30, "coinsurance": null, "prior_auth_required": false, "notes": "Primary care office visit."},
+        {"key": "specialist_visit", "is_category": true, "covered": true, "copay": 60, "coinsurance": null, "prior_auth_required": false, "notes": "In-network specialist."},
+        {"key": "MRI", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.30, "prior_auth_required": true, "notes": "Advanced imaging; prior auth required."},
+        {"key": "lab_panel", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.30, "prior_auth_required": false, "notes": "Diagnostic labs."},
+        {"key": "preventive_visit", "is_category": true, "covered": true, "copay": 0, "coinsurance": null, "prior_auth_required": false, "notes": "Preventive care covered at 100%."},
+        {"key": "emergency_room", "is_category": true, "covered": true, "copay": 350, "coinsurance": null, "prior_auth_required": false, "notes": "ER copay waived if admitted."}
+      ]
+    },
+    {
+      "plan_id": "PLN-GOLD",
+      "items": [
+        {"key": "office_visit", "is_category": true, "covered": true, "copay": 20, "coinsurance": null, "prior_auth_required": false, "notes": "Primary care office visit."},
+        {"key": "specialist_visit", "is_category": true, "covered": true, "copay": 40, "coinsurance": null, "prior_auth_required": false, "notes": "In-network specialist."},
+        {"key": "MRI", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.20, "prior_auth_required": true, "notes": "Advanced imaging; prior auth required."},
+        {"key": "lab_panel", "is_category": true, "covered": true, "copay": null, "coinsurance": 0.20, "prior_auth_required": false, "notes": "Diagnostic labs."},
+        {"key": "preventive_visit", "is_category": true, "covered": true, "copay": 0, "coinsurance": null, "prior_auth_required": false, "notes": "Preventive care covered at 100%."},
+        {"key": "emergency_room", "is_category": true, "covered": true, "copay": 250, "coinsurance": null, "prior_auth_required": false, "notes": "ER copay waived if admitted."}
+      ]
+    }
+  ]
+}
