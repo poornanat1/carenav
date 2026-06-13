@@ -7,12 +7,14 @@ graceful failure posture. The tiering/escalation policy itself lives in the
 orchestrator; the gateway just executes a call at a requested model and records cost.
 
 Backends:
-  * **Mistral** via an API key (MISTRAL_API_KEY) — the real path, for both generation
-    and embeddings (`mistral-embed`, 1024-dim).
-  * **Offline stub** when no Mistral key is configured — deterministic canned output so
-    the agent, tests, and CI run with no key and no network. The stub is obvious
-    (it echoes a fixed grounded sentence citing the first provided chunk id) so it is
-    never mistaken for a real answer.
+  * **Fireworks** via FIREWORKS_API_KEY — default generation path and deployed PII LoRA
+    inference.
+  * **Mistral** via MISTRAL_API_KEY — embeddings (`mistral-embed`, 1024-dim) and an
+    alternate generation path.
+  * **Offline stub** when no generation key is configured — deterministic canned output
+    so the agent, tests, and CI run with no generation spend. The stub is obvious (it
+    echoes a fixed grounded sentence citing the first provided chunk id) so it is never
+    mistaken for a real answer.
 
 No application code outside this package may import mistralai / any provider SDK.
 """
@@ -22,6 +24,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
+import httpx
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from carenav.config import settings
@@ -110,6 +113,8 @@ class CostLedger:
 
 
 def _real_backend_name() -> str | None:
+    if settings.model_provider == "fireworks" and settings.fireworks_api_key:
+        return "fireworks-apikey"
     if settings.mistral_api_key:
         return "mistral-apikey"
     return None
@@ -133,7 +138,10 @@ class ModelGateway:
 
     def _get_client(self):
         if self._client is None:
-            from mistralai.client import Mistral
+            try:
+                from mistralai import Mistral
+            except ImportError:
+                from mistralai.client import Mistral
 
             self._client = Mistral(api_key=settings.mistral_api_key)
         return self._client
@@ -164,6 +172,11 @@ class ModelGateway:
         t0 = time.monotonic()
         if backend == "stub":
             text, in_tok, out_tok = _stub_generate(prompt)
+        elif backend == "fireworks-apikey":
+            text, in_tok, out_tok = self._fireworks_chat(
+                messages=[{"role": "user", "content": prompt}],
+                model=model,
+            )
         else:
             text, in_tok, out_tok = self._mistral_generate(prompt, model)
         latency = time.monotonic() - t0
@@ -196,6 +209,109 @@ class ModelGateway:
         out_tok = getattr(usage, "completion_tokens", 0) or 0
         return (text, in_tok, out_tok)
 
+    @_retry_transient
+    def _fireworks_chat(self, *, messages: list[dict], model: str) -> tuple[str, int, int]:
+        if not settings.fireworks_api_key:
+            raise RuntimeError("FIREWORKS_API_KEY required for Fireworks model calls")
+        payload = {"model": model, "messages": messages}
+        resp = httpx.post(
+            f"{settings.fireworks_api_base.rstrip('/')}/inference/v1/chat/completions",
+            headers={
+                "Authorization": f"Bearer {settings.fireworks_api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=settings.model_request_timeout_s,
+        )
+        if resp.status_code >= 400:
+            raise RuntimeError(f"Fireworks chat failed ({resp.status_code}): {resp.text[:500]}")
+        body = resp.json()
+        text = body["choices"][0]["message"].get("content") or ""
+        usage = body.get("usage") or {}
+        in_tok = int(usage.get("prompt_tokens") or 0)
+        out_tok = int(usage.get("completion_tokens") or 0)
+        return (text, in_tok, out_tok)
+
+    # --- PII detection (fine-tuned SFT model) ---------------------------------
+
+    # System instruction for the fine-tuned span extractor. The fine-tune teaches the
+    # output shape; this just frames the task and pins the JSON contract for robustness.
+    _PII_SYSTEM = (
+        "You detect personal/health identifiers in the user's message and return ONLY a "
+        'JSON array of spans: [{"start": int, "end": int, "label": str}]. Labels: '
+        "NAME, DOB, ADDRESS, PROVIDER_NAME. start/end are character offsets. Return [] if none."
+    )
+
+    def classify_pii(self, text: str, *, model: str | None = None) -> list[dict] | None:
+        """Detect free-text PII spans with the fine-tuned model. Returns raw span dicts.
+
+        Returns ``None`` when the detector is UNAVAILABLE (no model configured, no real
+        backend, or the call/parse failed) — the caller MUST treat None as "fall back to
+        the spaCy/regex detector", never as "no PII found". An empty list means the model
+        ran and found nothing.
+
+        The input is raw PHI by design (the model's whole job is to find PHI in it), so this
+        call is NEVER added to ``captured_prompts`` and its text is never logged. Cost is
+        still recorded in the ledger (token counts only, no content).
+        """
+        model = model or settings.pii_model
+        if model is None or not self.using_real_models():
+            return None  # not configured / offline → caller falls back to spaCy+regex
+        try:
+            if self.backend_name() == "fireworks-apikey":
+                spans, in_tok, out_tok, latency = self._fireworks_classify_pii(text, model)
+            else:
+                spans, in_tok, out_tok, latency = self._mistral_classify_pii(text, model)
+        except Exception:
+            return None  # fail safe: detector unavailable, do NOT report "no PII"
+        self.ledger.record(
+            ModelCall(
+                model=model,
+                kind="classify_pii",
+                input_tokens=in_tok,
+                output_tokens=out_tok,
+                cost_usd=_cost_usd(model, in_tok, out_tok),
+                latency_s=latency,
+                backend=self.backend_name(),
+            )
+        )
+        return spans
+
+    @_retry_transient
+    def _mistral_classify_pii(self, text: str, model: str) -> tuple[list[dict], int, int, float]:
+        client = self._get_client()
+        t0 = time.monotonic()
+        resp = client.chat.complete(
+            model=model,
+            messages=[
+                {"role": "system", "content": self._PII_SYSTEM},
+                {"role": "user", "content": text},
+            ],
+            response_format={"type": "json_object"},
+            timeout_ms=int(settings.model_request_timeout_s * 1000),
+        )
+        latency = time.monotonic() - t0
+        raw = resp.choices[0].message.content or "[]"
+        spans = _parse_pii_spans(raw, len(text))
+        usage = getattr(resp, "usage", None)
+        in_tok = getattr(usage, "prompt_tokens", 0) or 0
+        out_tok = getattr(usage, "completion_tokens", 0) or 0
+        return spans, in_tok, out_tok, latency
+
+    @_retry_transient
+    def _fireworks_classify_pii(self, text: str, model: str) -> tuple[list[dict], int, int, float]:
+        t0 = time.monotonic()
+        raw, in_tok, out_tok = self._fireworks_chat(
+            model=model,
+            messages=[
+                {"role": "system", "content": self._PII_SYSTEM},
+                {"role": "user", "content": text},
+            ],
+        )
+        latency = time.monotonic() - t0
+        spans = _parse_pii_spans(raw or "[]", len(text))
+        return spans, in_tok, out_tok, latency
+
     # --- embeddings -----------------------------------------------------------
 
     def embed(self, texts: list[str], *, task_type: str) -> list[list[float]]:
@@ -210,7 +326,7 @@ class ModelGateway:
         """
         if not texts:
             return []
-        if not self.using_real_models():
+        if not settings.mistral_api_key:
             raise RuntimeError("ModelGateway.embed called with no Mistral backend configured")
 
         t0 = time.monotonic()
@@ -247,6 +363,40 @@ class ModelGateway:
             model=settings.embedding_model, inputs=texts
         )
         return [list(d.embedding) for d in resp.data]
+
+
+# --- PII span parsing ----------------------------------------------------------------
+
+_PII_LABELS = frozenset({"NAME", "DOB", "ADDRESS", "PROVIDER_NAME"})
+
+
+def _parse_pii_spans(raw: str, text_len: int) -> list[dict]:
+    """Parse + validate the fine-tuned model's JSON span output. Drops anything malformed.
+
+    Accepts a bare array ``[{...}]`` or an object wrapper ``{"spans": [...]}`` (json_object
+    mode returns an object). Every span must have an in-range start<end and a known label;
+    invalid entries are dropped rather than trusted. Raises on totally unparseable JSON so
+    the caller's try/except treats it as detector-unavailable (fail safe, not "no PII").
+    """
+    import json
+
+    data = json.loads(raw)
+    if isinstance(data, dict):
+        data = data.get("spans", [])
+    if not isinstance(data, list):
+        return []
+    out: list[dict] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+        try:
+            start, end = int(item["start"]), int(item["end"])
+            label = str(item["label"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if label in _PII_LABELS and 0 <= start < end <= text_len:
+            out.append({"start": start, "end": end, "label": label})
+    return out
 
 
 # --- offline stub backend ------------------------------------------------------------

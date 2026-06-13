@@ -51,13 +51,15 @@ class Settings(BaseSettings):
     nppes_max_providers: int = Field(default=5000, description="Cap providers loaded from NPPES.")
     nppes_states: str = Field(default="NJ,NY", description="Comma-separated states to keep.")
 
-    # --- models (Mistral default; gateway stays provider-agnostic) ---
-    model_provider: str = Field(default="mistral", description="mistral | google | anthropic")
+    # --- models (Fireworks default; gateway stays provider-agnostic) ---
+    model_provider: str = Field(default="fireworks", description="fireworks | mistral")
     model_small: str = Field(
-        default="mistral-small-latest", description="Tier 1 small/cheap model."
+        default="accounts/fireworks/models/gpt-oss-20b",
+        description="Tier 1 small/cheap model.",
     )
     model_frontier: str = Field(
-        default="mistral-large-latest", description="Tier 2 frontier model."
+        default="accounts/fireworks/models/gpt-oss-120b",
+        description="Tier 2 frontier model.",
     )
 
     # Force the gateway's offline stub for *generation* even when a Mistral credential is
@@ -75,6 +77,14 @@ class Settings(BaseSettings):
     mistral_api_key: str | None = Field(
         default=None, description="Mistral API key (from console.mistral.ai)."
     )
+    fireworks_api_key: str | None = Field(
+        default=None, description="Fireworks API key (from app.fireworks.ai)."
+    )
+    fireworks_account_id: str | None = Field(
+        default=None,
+        description="Fireworks account id, with or without the 'accounts/' prefix.",
+    )
+    fireworks_api_base: str = Field(default="https://api.fireworks.ai")
 
     # --- embeddings / vector store ---
     # mistral-embed is Mistral's embedding model: a fixed 1024-dim symmetric embedding
@@ -95,6 +105,23 @@ class Settings(BaseSettings):
     # (~0.5-0.7 rank) adds ~0.05-0.07 — decisive between sibling docs, but small against
     # real topical gaps. 0 = pure vector search.
     rag_lex_weight: float = Field(default=0.1)
+
+    # --- redaction / PII detector (M3) ---
+    # The fine-tuned PII tagger id (layer 2 of the redaction stack). None until a
+    # fine-tuning job has run (`make train-pii`); when unset, layer 2 degrades to the
+    # spaCy/regex detector so the PII-leak hard gate still passes offline (layers 1+3 carry
+    # it). See internal/phase-3-plan.md.
+    pii_model: str | None = Field(
+        default=None, description="Fine-tuned Fireworks PII-detection model id."
+    )
+    # Base model the PII detector is fine-tuned from via Fireworks managed SFT.
+    pii_base_model: str = Field(default="accounts/fireworks/models/llama-v3p1-8b-instruct")
+    pii_output_model: str = Field(default="carenav-pii-detector")
+    pii_train_epochs: int = Field(default=1)
+    pii_learning_rate: float | None = Field(default=None)
+    pii_lora_rank: int = Field(default=8)
+    # Where the generated PII training/eval corpus is written (.jsonl).
+    pii_corpus_dir: str = Field(default="./data_artifacts/pii")
 
     # --- orchestrator ---
     max_steps: int = Field(default=5, description="Bound on plan/tool_exec/reflect loop.")

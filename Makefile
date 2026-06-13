@@ -1,6 +1,6 @@
 .DEFAULT_GOAL := help
 .PHONY: help install lock db-up db-down data data-synthea data-nppes data-benefits \
-        data-kb eval run test lint fmt clean
+        data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval run test lint fmt clean
 
 # Run python through the venv if present, else system.
 PY ?= python
@@ -9,10 +9,9 @@ help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
 		| awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-16s\033[0m %s\n", $$1, $$2}'
 
-install: ## Install runtime + dev deps and the spaCy model
+install: ## Install runtime + dev deps
 	pip install -r requirements.txt
 	pip install -e ".[dev]"
-	$(PY) -m spacy download en_core_web_lg || $(PY) -m spacy download en_core_web_sm
 
 lock: ## Recompile requirements.txt from requirements.in (pip-tools)
 	pip-compile requirements.in -o requirements.txt
@@ -38,6 +37,19 @@ data-benefits: ## Load hand-authored benefit rules
 
 data-kb: ## Build the KB corpus + embeddings (M1)
 	$(PY) -m carenav.data.pipeline --only kb
+
+# ---- M3: PII detector (fine-tune free-text span extraction) ----
+pii-corpus: ## Generate the labeled PII corpus from Synthea members (needs `make data`)
+	$(PY) -m carenav.redaction.training.generate_corpus
+
+train-pii: pii-corpus ## Fine-tune the Fireworks PII span extractor (real job; needs FIREWORKS_API_KEY)
+	$(PY) -m carenav.redaction.training.finetune
+
+debug-mistral-ft: ## Print a redacted Mistral fine-tuning diagnostic (no POST unless flags are passed)
+	$(PY) -m carenav.redaction.training.diagnose_mistral_ft
+
+eval-pii: ## Score the PII detector on the held-out split (P/R/F1 per entity)
+	$(PY) -m eval.pii.evaluate
 
 # ---- later milestones ----
 eval: ## Run the golden CUJ eval suite (M5)
