@@ -33,6 +33,7 @@ from carenav.orchestrator.state import (
 from carenav.rag import retrieval
 from carenav.rag.agent import Citation, RagAnswer, answer_question, generate_grounded
 from carenav.rag.retrieval import Hit, retrieval_conf
+from carenav.redaction import PiiMap, redact, rehydrate
 
 
 def _handoff(question, intent, answers, reason, safety) -> HandoffPacket:
@@ -54,6 +55,23 @@ def _escalate(question, intent, subs, answers, conf, reason, safety, tier, cost)
         confidence=conf, tier_used=tier, safety_flag=safety, cost_usd=cost,
         rag_answers=answers,
     )
+
+
+def _redact_sources(sources: list[Hit], pii_map: PiiMap, gw: ModelGateway) -> None:
+    """Redact PII in each tool-output source's text in place (docs/05).
+
+    Tool facts can carry member PHI (names, etc.); they must be tokenized before reaching
+    the generator or re-entering graph state. Hit is frozen, so we swap in a redacted copy.
+    Reuses the turn's pii_map so tokens are consistent with the redacted question.
+    """
+    from dataclasses import replace
+
+    for i, hit in enumerate(sources):
+        if not hit.text:
+            continue
+        redacted, _ = redact(hit.text, pii_map, gateway=gw, source="tool_output")
+        if redacted != hit.text:
+            sources[i] = replace(hit, text=redacted)
 
 
 def _answer_subs(
@@ -98,6 +116,14 @@ def run_turn(
     """
     gw = gateway or ModelGateway()
 
+    # --- redact (docs/05): tokenize PII in the user's text BEFORE any model call ---
+    # Everything downstream (router, plan, decompose, generate, verify, handoff) operates on
+    # the REDACTED question, so no raw PHI ever reaches a model prompt or the graph state.
+    # The reversible pii_map is held here (out of band) for the single rehydrate at the end.
+    # Safety triage is unaffected: redaction targets identifiers, not symptoms.
+    pii_map = PiiMap()
+    question, _audit = redact(question, pii_map, gateway=gw, source="user_text")
+
     # --- route (safety triage + intent) ---
     intent, intent_conf, safety = _router.route(question, gw)
 
@@ -132,6 +158,9 @@ def run_turn(
             return _escalate(question, intent, [question], [], conf,
                              "member_context_required", safety, "human",
                              gw.ledger.total_cost_usd)
+        # Redact tool-output PII BEFORE it re-enters state / reaches the generator (docs/05).
+        # Reuse the turn's pii_map so a value tokenized in the question keeps the same token.
+        _redact_sources(tool_run.sources, pii_map, gw)
 
     # --- decompose (comparatives → per-subject sub-questions) ---
     subs = _decompose.decompose(question, gw)
@@ -156,8 +185,12 @@ def run_turn(
         return _escalate(question, intent, subs, answers, conf,
                          "verify_fail", safety, "human", gw.ledger.total_cost_usd)
 
+    # --- rehydrate (docs/05): the ONLY point tokens → real values, on the user-facing
+    # string only. Graph state / citations / handoff keep the tokenized form.
+    answer = rehydrate(text, pii_map)
+
     return TurnResult(
-        question=question, intent=intent, sub_questions=subs, answer=text,
+        question=question, intent=intent, sub_questions=subs, answer=answer,
         citations=citations, grounded=grounded, escalated=False, handoff=None,
         confidence=conf, tier_used=tier, safety_flag=safety,
         cost_usd=gw.ledger.total_cost_usd, rag_answers=answers,
