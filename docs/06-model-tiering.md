@@ -4,15 +4,15 @@ Implements spec §4.4. Lives in `carenav/models/`.
 
 ## The four tiers
 
-| Tier | What | When | Concrete (Mistral) |
+| Tier | What | When | Concrete (Fireworks) |
 |---|---|---|---|
 | **Tier 0 — no LLM** | Pure lookups / deterministic intents skip generation entirely | Deterministic answers | — |
-| **Tier 1 — small/cheap** | Routing + the majority of response generation | Confidence above bar | **`mistral-small-latest`** |
-| **Tier 2 — frontier** | Invoked only when confidence is low | One retry at higher quality | **`mistral-large-latest`** |
+| **Tier 1 — small/cheap** | Routing + the majority of response generation | Confidence above bar | **`accounts/fireworks/models/gpt-oss-20b`** |
+| **Tier 2 — frontier** | Invoked only when confidence is low | One retry at higher quality | **`accounts/fireworks/models/gpt-oss-120b`** |
 | **Tier 3 — human** | Safety escalation, or persistent low confidence on a high-stakes turn | Safety / give-up | Human handoff |
 
-> Provider is **Mistral** (settled, §14). The `ModelGateway` stays provider-agnostic —
-> other providers swappable — but Mistral is the default benchmarked pair. See
+> Generation uses **Fireworks** by default. Embeddings are still backed by Mistral's
+> `mistral-embed`. The `ModelGateway` stays provider-agnostic. See
 > [02-tech-stack.md](02-tech-stack.md).
 
 ## Composite confidence
@@ -68,7 +68,7 @@ This sweep is produced by `eval/run.py` ([09-eval.md](09-eval.md)).
 
 A thin abstraction (`carenav/models/`) — **the only place provider SDKs are imported.**
 
-- Provider-agnostic call interface (Mistral default; other providers swappable).
+- Provider-agnostic call interface (Fireworks default for generation; Mistral for embeddings).
 - Per-call **tier + cost capture**: input/output tokens × per-model price.
 - **Prompt capture** for the PII-leak gate (cold path, redacted only — see [05](05-redaction.md)).
 - At scale: rate-limiting, retries with backoff, semantic cache ([12](12-scalability.md)).
@@ -83,13 +83,12 @@ guess. (Echoed in [01](01-architecture.md) and [12](12-scalability.md).)
 ## Implementation status
 
 **`ModelGateway` v1 shipped with M1** (`carenav/models/gateway.py`) — the only module
-that imports a provider SDK (Mistral, via API key). It provides the
-provider-agnostic `generate()`/`embed()` interface, per-call **token + cost capture** (a
-`CostLedger`), **prompt capture** for the PII-leak gate, a per-call **timeout**, and
-**retry-with-backoff** on transient 429/5xx. Generation can be stubbed independently of
-embeddings (`stub_generation`) for offline/no-quota runs. The tiering/escalation *policy*
-(confidence scoring, frontier retry, human handoff) lands in **M4**; the gateway already
-records cost per model so the sweep can be computed once eval exists.
+that talks to provider APIs. It provides the provider-agnostic `generate()`/`embed()`
+interface, per-call **token + cost capture** (a `CostLedger`), **prompt capture** for
+the PII-leak gate, a per-call **timeout**, and **retry-with-backoff** on transient
+429/5xx. Generation can be stubbed independently of embeddings (`stub_generation`) for
+offline/no-quota runs. Embeddings require a Mistral key; Fireworks powers generation
+and the fine-tuned PII classifier path.
 
 **M4 tiering policy shipped** (`carenav/orchestrator/`): `ConfidenceBreakdown`
 (intent/retrieval/tool/self-eval, weighted) scored against `TAU_HIGH` (urgent) /

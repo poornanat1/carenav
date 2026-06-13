@@ -107,9 +107,10 @@ Both are CI-enforced ([docs/09-eval.md](docs/09-eval.md)).
 ## Tech stack
 
 Python 3.11+ · typed orchestrator pipeline · FastAPI · Pydantic v2 · Postgres + pgvector
-(hybrid vector + full-text) · Presidio + spaCy · Mistral
-(`mistral-small-latest`/`mistral-large-latest`) via a provider-agnostic gateway · React
-frontend · OpenTelemetry. See [docs/02-tech-stack.md](docs/02-tech-stack.md).
+(hybrid vector + full-text) · three-layer PHI redaction · Fireworks
+(`gpt-oss-20b`/`gpt-oss-120b`) for generation and PII fine-tuning · Mistral
+(`mistral-embed`) for embeddings · React frontend · OpenTelemetry. See
+[docs/02-tech-stack.md](docs/02-tech-stack.md).
 
 ## Repo layout
 
@@ -123,7 +124,7 @@ src/carenav/
   orchestrator/ ✅ typed node pipeline (route, decompose, tool loop, verify, escalate)
   agents/       ✅ specialist tools (member, benefits, claims, provider)
   api/          ✅ FastAPI turn endpoint
-  redaction/    ⬜ PII tokenization
+  redaction/    ✅ PII detection, tokenization, Fireworks SFT training
   telemetry/    ⬜ tracing + structured logs
 eval/           ⬜ golden test set · metrics · run.py
 frontend/       ⬜ React chat (not yet created)

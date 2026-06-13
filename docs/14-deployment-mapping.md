@@ -8,7 +8,7 @@ CareNav component onto a generic managed-service category so it can land on any 
 | CareNav component | Managed-service category |
 |---|---|
 | Orchestrator (typed Python pipeline) | Container service / serverless runtime |
-| Tier 1 / Tier 2 models | Managed model-serving endpoint or provider API (**Mistral** by default) |
+| Tier 1 / Tier 2 models | Managed model-serving endpoint or provider API (**Fireworks** by default) |
 | Model gateway / serving | Container service fronting the model API/endpoint |
 | RAG vector store | Managed **Postgres + pgvector**, or a managed vector-search service |
 | PII/PHI redaction | Managed sensitive-data / DLP service (analog to Presidio) |
@@ -31,8 +31,11 @@ store.*
 The settled choices ([02](02-tech-stack.md)) make several of these mappings the
 **actual implementation**, not just analogs:
 
-- **Models** → Mistral via API (`mistral-small-latest` / `mistral-large-latest`),
-  reached through the provider-agnostic `ModelGateway`.
+- **Models** → Fireworks via API (`gpt-oss-20b` / `gpt-oss-120b`), reached through
+  the provider-agnostic `ModelGateway`.
+- **PII detector** → Fireworks supervised fine-tune, deployed as a LoRA route on a
+  base-model deployment.
+- **Embeddings** → Mistral `mistral-embed`, called through the same gateway.
 - **DB + vector store** → managed Postgres + pgvector (the real store), with a
   backend-neutral retrieval interface.
 

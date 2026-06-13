@@ -22,12 +22,31 @@ Three independent layers; an entity caught by any of them is redacted.
 | Layer | Catches | Mechanism |
 |---|---|---|
 | **Deterministic / field-based** | Data *we* introduced — values pulled from known PHI fields of a looked-up record (name, DOB, address, member_id, phone, email, MRN) | Exact / structured match. **Highest precision.** |
-| **Model-based NER** | Free-text PHI the *user* typed ("my name is Jordan and my DOB is…") | Presidio + spaCy |
+| **Fine-tuned model** | Free-text PHI the *user* typed ("my name is Jordan and my DOB is…"), third-party names, provider mentions, reformatted DOBs | Fireworks supervised fine-tune returning character-offset spans |
 | **Pattern-based** | Format-recognizable identifiers | Regex: SSN-like, phone, email, member-id |
 
 The field-based layer is the most important: because the system itself injects member
 records into context, those known fields can be redacted with certainty before any
 NER/regex guesswork is needed.
+
+## Fine-tuned Detector
+
+Layer 2 is a Fireworks LoRA fine-tune trained from generated Synthea-derived PII
+examples. It is intentionally a span extractor, not a classifier: it returns JSON
+spans like `{"start": 12, "end": 24, "label": "NAME"}` over the raw input string.
+
+The operational flow is:
+
+1. `make pii-corpus` builds train/eval JSONL examples under `data_artifacts/pii/`.
+2. `make train-pii` uploads Fireworks datasets and creates a supervised fine-tuning job.
+3. Deploy the resulting model as a LoRA on a base-model deployment with addons enabled.
+4. Set `PII_MODEL` to the Fireworks route:
+   `<fine_tuned_model>#<deployment>`.
+
+Current provider settings live in `.env.example`: Fireworks handles generation and PII
+fine-tuning; Mistral remains the embedding provider. If `PII_MODEL` or the provider
+call is unavailable, the detector fails closed by contributing no layer-2 spans while
+field matching and regex continue to enforce the PII-leak gate.
 
 ## Tokenization
 
