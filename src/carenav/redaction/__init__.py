@@ -1,4 +1,4 @@
-"""PII/PHI redaction — three-layer detection + session-scoped tokenization (M3).
+"""PII/PHI redaction — three-layer detection + session-scoped tokenization.
 
 Public surface:
 

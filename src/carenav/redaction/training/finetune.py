@@ -1,4 +1,4 @@
-"""Fine-tune a Fireworks SFT model to extract free-text PII entities (M3).
+"""Fine-tune a Fireworks SFT model to extract free-text PII entities.
 
 Pipeline: reshape the generated corpus (text + gold spans) into OpenAI-style chat JSONL,
 upload train/eval datasets to Fireworks, create a supervised fine-tuning job, poll to a

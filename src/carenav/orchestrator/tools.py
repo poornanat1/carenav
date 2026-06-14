@@ -1,4 +1,4 @@
-"""plan → tool_exec → reflect — the specialist-tool loop (docs/03 nodes 5-7, M2 slice).
+"""plan → tool_exec → reflect — the specialist-tool loop (docs/03 nodes 5-7).
 
 The orchestrator decides which specialist agents a turn needs, runs them, and turns their
 STRUCTURED outputs into groundable "sources" so the same citation + groundedness contract
@@ -9,7 +9,7 @@ deductible and is an MRI covered?" needs member_account (for the deductible) + b
 Tool outputs become Hit-shaped pseudo-chunks with `tool:<name>:<field-group>` ids, so the
 generator cites e.g. [CHUNK:tool:member_account] just as it cites a KB chunk, and the
 groundedness check verifies the claim against the tool fact. Member PHI in these sources is
-tokenized by the redaction layer (M3) at this boundary; here we only assemble.
+tokenized by the redaction layer at this boundary; here we only assemble.
 
 `tool_conf` for the confidence breakdown is the fraction of run tools that returned complete.
 """

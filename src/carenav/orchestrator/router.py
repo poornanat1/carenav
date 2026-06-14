@@ -1,4 +1,4 @@
-"""route node — safety triage + intent classification (docs/03 nodes 2+4, M4 slice).
+"""route node — safety triage + intent classification (docs/03 nodes 2+4).
 
 Three layers, cheapest first:
   1. EMERGENT triage — deterministic keyword scan for can't-miss signals (chest pain,

@@ -104,7 +104,7 @@ def test_ungrounded_never_clears_bar():
     assert c.weighted_sum() < settings.tau_low
 
 
-# --- tool loop (M2): plan → tool_exec → reflect ---------------------------------------------
+# --- tool loop: plan → tool_exec → reflect ---------------------------------------------
 
 def test_member_context_required_without_ref(monkeypatch):
     # A deductible question needs member data; with no member_ref the turn escalates
@@ -117,7 +117,7 @@ def test_member_context_required_without_ref(monkeypatch):
 @requires_db
 @requires_generation
 def test_multitool_turn_deductible_and_mri():
-    # The M2 demo turn: needs member_account (deductible) AND benefit_lookup (MRI coverage),
+    # Demo turn: needs member_account (deductible) AND benefit_lookup (MRI coverage),
     # grounded over both tool sources in one answer.
     from sqlalchemy import select
 

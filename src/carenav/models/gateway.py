@@ -85,7 +85,7 @@ class GenerateResult:
 
 @dataclass
 class CostLedger:
-    """Accumulates every call's cost so totals accrue across a turn / a milestone."""
+    """Accumulates every call's cost so totals accrue across a turn or eval run."""
 
     calls: list[ModelCall] = field(default_factory=list)
 

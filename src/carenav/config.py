@@ -106,7 +106,7 @@ class Settings(BaseSettings):
     # real topical gaps. 0 = pure vector search.
     rag_lex_weight: float = Field(default=0.1)
 
-    # --- redaction / PII detector (M3) ---
+    # --- redaction / PII detector ---
     # The fine-tuned PII tagger id (layer 2 of the redaction stack). None until a
     # fine-tuning job has run (`make train-pii`); when unset, layer 2 degrades to the
     # spaCy/regex detector so the PII-leak hard gate still passes offline (layers 1+3 carry

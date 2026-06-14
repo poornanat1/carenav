@@ -39,7 +39,7 @@ from carenav.redaction import PiiMap, redact, rehydrate
 def _handoff(question, intent, answers, reason, safety) -> HandoffPacket:
     gathered = [c.chunk_id for a in answers for c in a.citations]
     return HandoffPacket(
-        redacted_summary=question,  # redaction layer (M2) tokenizes this upstream
+        redacted_summary=question,  # redaction layer tokenizes this upstream
         suspected_intent=intent,
         gathered=gathered,
         reason=reason,

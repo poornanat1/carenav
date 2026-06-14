@@ -1,8 +1,8 @@
 """member_ref → member_id indirection (docs/04).
 
 The orchestrator and prompts only ever see an opaque `member_ref`; the agent layer
-resolves it to the real `member_id` here. The map is process-local for now (the M2
-slice); the session store moves out of process (Redis / managed KV) with deployment.
+resolves it to the real `member_id` here. The map is process-local for now; the session
+store moves out of process (Redis / managed KV) with deployment.
 """
 
 from __future__ import annotations

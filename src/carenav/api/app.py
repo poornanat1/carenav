@@ -4,7 +4,7 @@ POST /turn runs one member turn through run_turn and returns the structured resu
 (answer + citations, or an escalation handoff). The orchestrator is sync + DB/LLM-bound,
 so it runs in a threadpool to keep the event loop free.
 
-This is the M2 serving surface; the React frontend (M6) calls it.
+This is the serving surface used by the React frontend.
 """
 
 from __future__ import annotations
