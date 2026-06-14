@@ -234,12 +234,14 @@ class ModelGateway:
 
     # --- PII detection (fine-tuned SFT model) ---------------------------------
 
-    # System instruction for the fine-tuned span extractor. The fine-tune teaches the
-    # output shape; this just frames the task and pins the JSON contract for robustness.
+    # System instruction for the fine-tuned extractor. The fine-tune teaches the output
+    # shape; this frames the task around copying exact substrings instead of counting
+    # offsets. Offsets are resolved locally, which is much more reliable.
     _PII_SYSTEM = (
         "You detect personal/health identifiers in the user's message and return ONLY a "
-        'JSON array of spans: [{"start": int, "end": int, "label": str}]. Labels: '
-        "NAME, DOB, ADDRESS, PROVIDER_NAME. start/end are character offsets. Return [] if none."
+        'JSON array of entities: [{"text": str, "label": str}]. Labels: '
+        "NAME, DOB, ADDRESS, PROVIDER_NAME. text must be copied exactly from the user message. "
+        "Return [] if none."
     )
 
     def classify_pii(self, text: str, *, model: str | None = None) -> list[dict] | None:
@@ -292,7 +294,7 @@ class ModelGateway:
         )
         latency = time.monotonic() - t0
         raw = resp.choices[0].message.content or "[]"
-        spans = _parse_pii_spans(raw, len(text))
+        spans = _parse_pii_spans(raw, text)
         usage = getattr(resp, "usage", None)
         in_tok = getattr(usage, "prompt_tokens", 0) or 0
         out_tok = getattr(usage, "completion_tokens", 0) or 0
@@ -309,7 +311,7 @@ class ModelGateway:
             ],
         )
         latency = time.monotonic() - t0
-        spans = _parse_pii_spans(raw or "[]", len(text))
+        spans = _parse_pii_spans(raw or "[]", text)
         return spans, in_tok, out_tok, latency
 
     # --- embeddings -----------------------------------------------------------
@@ -370,33 +372,71 @@ class ModelGateway:
 _PII_LABELS = frozenset({"NAME", "DOB", "ADDRESS", "PROVIDER_NAME"})
 
 
-def _parse_pii_spans(raw: str, text_len: int) -> list[dict]:
-    """Parse + validate the fine-tuned model's JSON span output. Drops anything malformed.
+def _parse_pii_spans(raw: str, text: str | int) -> list[dict]:
+    """Parse + validate fine-tuned model output into character spans.
 
-    Accepts a bare array ``[{...}]`` or an object wrapper ``{"spans": [...]}`` (json_object
-    mode returns an object). Every span must have an in-range start<end and a known label;
-    invalid entries are dropped rather than trusted. Raises on totally unparseable JSON so
-    the caller's try/except treats it as detector-unavailable (fail safe, not "no PII").
+    The current model contract is ``{"text", "label"}``: models copy substrings, while
+    application code resolves offsets. For compatibility with older models/tests, legacy
+    ``{"start", "end", "label"}`` spans are still accepted when valid.
+
+    Accepts a bare array or an object wrapper using ``entities``/``spans``. Invalid entries
+    are dropped rather than trusted. Raises on totally unparseable JSON so the caller's
+    try/except treats it as detector-unavailable (fail safe, not "no PII").
     """
     import json
 
+    source_text = "" if isinstance(text, int) else text
+    text_len = text if isinstance(text, int) else len(text)
     data = json.loads(raw)
     if isinstance(data, dict):
-        data = data.get("spans", [])
+        data = data.get("entities", data.get("spans", []))
     if not isinstance(data, list):
         return []
     out: list[dict] = []
+    search_from: dict[tuple[str, str], int] = {}
     for item in data:
         if not isinstance(item, dict):
             continue
+        label = str(item.get("label", ""))
+        if label not in _PII_LABELS:
+            continue
+
+        if "text" in item and source_text:
+            entity_text = str(item.get("text") or "").strip()
+            resolved = _resolve_entity_text(source_text, entity_text, label, search_from)
+            if resolved is not None:
+                start, end = resolved
+                out.append({"start": start, "end": end, "label": label})
+            continue
+
         try:
             start, end = int(item["start"]), int(item["end"])
-            label = str(item["label"])
         except (KeyError, TypeError, ValueError):
             continue
-        if label in _PII_LABELS and 0 <= start < end <= text_len:
+        if 0 <= start < end <= text_len:
             out.append({"start": start, "end": end, "label": label})
     return out
+
+
+def _resolve_entity_text(
+    source_text: str,
+    entity_text: str,
+    label: str,
+    search_from: dict[tuple[str, str], int],
+) -> tuple[int, int] | None:
+    """Map a copied entity string back to the next matching span in source_text."""
+    if not entity_text:
+        return None
+    key = (label, entity_text.casefold())
+    start_at = search_from.get(key, 0)
+    start = source_text.find(entity_text, start_at)
+    if start == -1:
+        start = source_text.casefold().find(entity_text.casefold(), start_at)
+    if start == -1:
+        return None
+    end = start + len(entity_text)
+    search_from[key] = end
+    return start, end
 
 
 # --- offline stub backend ------------------------------------------------------------

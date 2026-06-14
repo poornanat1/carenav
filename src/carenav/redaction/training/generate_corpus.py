@@ -58,6 +58,21 @@ _TEMPLATES: tuple[str, ...] = (
     "{name}, date of birth {dob}, is the patient. {provider_name} is the referring doctor.",
     "Following up for my mother {name}, who lives at {address}.",
     "My provider is {provider_name}. My partner {name} ({dob}) is also covered.",
+    "The patient is {name}; DOB: {dob}; address: {address}.",
+    "{provider_name} told {name} to call about coverage for therapy.",
+    "Please send any plan letters for {name} to {address}.",
+    "I need to confirm benefits for {name}. Birthday is {dob}.",
+    "Our pediatrician {provider_name} referred {name} after the visit.",
+    "The bill lists {provider_name}, but it should be under {name}.",
+    "{name} lives at {address} and sees {provider_name}.",
+    "Can you look up {name}? Their date of birth is {dob}.",
+    "We moved. The new mailing address for {name} is {address}.",
+    "I am helping {name}, DOB {dob}, with a claim from {provider_name}.",
+    "The claim has the wrong home address: {address}.",
+    "{provider_name} is not in network for {name}, born {dob}.",
+    "My spouse {name} has a referral from {provider_name}.",
+    "Use {address} as the service address for the appointment.",
+    "This is about {name} at {address}; the doctor is {provider_name}.",
 )
 
 # Hard negatives: health/insurance vocabulary but NO patient PII. The model must NOT tag
@@ -73,6 +88,14 @@ _HARD_NEGATIVES: tuple[str, ...] = (
     "Can you explain why my claim was denied?",
     "Is a flu shot considered preventive care?",
     "What's the difference between the Gold and Silver plans?",
+    "My doctor ordered lab work after an annual visit.",
+    "Can a spouse stay on the plan after open enrollment?",
+    "Please explain the referral rules for a specialist.",
+    "Is a cardiology consult covered before meeting the deductible?",
+    "The provider billed under the wrong place of service.",
+    "Does the plan cover an out-of-network emergency?",
+    "How do I appeal a denied imaging claim?",
+    "Can you summarize my preventive care benefits?",
 )
 
 _LABEL_BY_PLACEHOLDER = {

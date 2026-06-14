@@ -22,7 +22,7 @@ Three independent layers; an entity caught by any of them is redacted.
 | Layer | Catches | Mechanism |
 |---|---|---|
 | **Deterministic / field-based** | Data *we* introduced — values pulled from known PHI fields of a looked-up record (name, DOB, address, member_id, phone, email, MRN) | Exact / structured match. **Highest precision.** |
-| **Fine-tuned model** | Free-text PHI the *user* typed ("my name is Jordan and my DOB is…"), third-party names, provider mentions, reformatted DOBs | Fireworks supervised fine-tune returning character-offset spans |
+| **Fine-tuned model** | Free-text PHI the *user* typed ("my name is Jordan and my DOB is…"), third-party names, provider mentions, reformatted DOBs | Fireworks supervised fine-tune returning copied entity values; offsets are resolved locally |
 | **Pattern-based** | Format-recognizable identifiers | Regex: SSN-like, phone, email, member-id |
 
 The field-based layer is the most important: because the system itself injects member
@@ -32,8 +32,11 @@ NER/regex guesswork is needed.
 ## Fine-tuned Detector
 
 Layer 2 is a Fireworks LoRA fine-tune trained from generated Synthea-derived PII
-examples. It is intentionally a span extractor, not a classifier: it returns JSON
-spans like `{"start": 12, "end": 24, "label": "NAME"}` over the raw input string.
+examples. It is intentionally an extractor, not a classifier: it returns JSON entities
+like `{"text": "Jordan Reyes", "label": "NAME"}` copied from the raw input string.
+The gateway maps those copied values back to character offsets before tokenization. This
+avoids asking the model to count characters, which was the main recall/F1 failure mode
+in the first offset-based fine-tune.
 
 The operational flow is:
 
@@ -42,6 +45,11 @@ The operational flow is:
 3. Deploy the resulting model as a LoRA on a base-model deployment with addons enabled.
 4. Set `PII_MODEL` to the Fireworks route:
    `<fine_tuned_model>#<deployment>`.
+
+The current deployed value-copy model scored 1.00 precision / 1.00 recall / 1.00 F1 on
+the regenerated 1,218-example held-out PII split (`python -m eval.pii.evaluate
+--concurrency 8`). The prompted base-model baseline scored 0.00 on the same extraction
+contract, so the fine-tune is carrying the model layer.
 
 Current provider settings live in `.env.example`: Fireworks handles generation and PII
 fine-tuning; Mistral remains the embedding provider. If `PII_MODEL` or the provider

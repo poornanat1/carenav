@@ -49,3 +49,18 @@ def test_fireworks_sft_job_payload_is_sparse(monkeypatch):
         "epochs": 1,
         "loraRank": 8,
     }
+
+
+def test_sft_target_uses_copied_entity_text():
+    ex = {
+        "text": "Patient Jordan Reyes was born 3/4/1980.",
+        "spans": [
+            {"start": 8, "end": 20, "label": "NAME"},
+            {"start": 30, "end": 38, "label": "DOB"},
+        ],
+    }
+
+    assert finetune._target_entities(ex) == [
+        {"text": "Jordan Reyes", "label": "NAME"},
+        {"text": "3/4/1980", "label": "DOB"},
+    ]

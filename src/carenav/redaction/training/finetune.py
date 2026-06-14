@@ -1,6 +1,6 @@
-"""Fine-tune a Fireworks SFT model to extract free-text PII spans (M3).
+"""Fine-tune a Fireworks SFT model to extract free-text PII entities (M3).
 
-Pipeline: reshape the generated corpus (text + spans) into OpenAI-style chat JSONL,
+Pipeline: reshape the generated corpus (text + gold spans) into OpenAI-style chat JSONL,
 upload train/eval datasets to Fireworks, create a supervised fine-tuning job, poll to a
 terminal state, and print the fine-tuned model id to set as ``PII_MODEL``.
 """
@@ -28,6 +28,15 @@ _FW_TERMINAL_STATES = {
 }
 
 
+def _target_entities(ex: dict) -> list[dict]:
+    """Convert gold offsets to the value-copy target the model is trained to emit."""
+    text = ex["text"]
+    return [
+        {"text": text[s["start"]:s["end"]], "label": s["label"]}
+        for s in ex["spans"]
+    ]
+
+
 def _to_sft_pairs(corpus_path: str) -> list[dict]:
     """Reshape {"text", "spans"} corpus lines into chat SFT messages."""
     pairs: list[dict] = []
@@ -37,10 +46,7 @@ def _to_sft_pairs(corpus_path: str) -> list[dict]:
             if not line:
                 continue
             ex = json.loads(line)
-            target = json.dumps(
-                [{"start": s["start"], "end": s["end"], "label": s["label"]} for s in ex["spans"]],
-                ensure_ascii=False,
-            )
+            target = json.dumps(_target_entities(ex), ensure_ascii=False)
             pairs.append({
                 "messages": [
                     {"role": "system", "content": _SYSTEM},

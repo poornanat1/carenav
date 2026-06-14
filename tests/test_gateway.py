@@ -45,24 +45,45 @@ def test_cost_pricing_for_known_model():
 # --- PII detector (fine-tuned span extractor) ---
 
 
-def test_parse_pii_spans_accepts_array_and_object_wrapper():
+def test_parse_pii_spans_accepts_value_array_and_object_wrapper():
     from carenav.models.gateway import _parse_pii_spans
 
-    arr = _parse_pii_spans('[{"start": 5, "end": 10, "label": "NAME"}]', 20)
-    assert arr == [{"start": 5, "end": 10, "label": "NAME"}]
-    # json_object mode wraps the array in an object.
-    obj = _parse_pii_spans('{"spans": [{"start": 0, "end": 3, "label": "DOB"}]}', 20)
-    assert obj == [{"start": 0, "end": 3, "label": "DOB"}]
+    text = "Patient Jordan Reyes was born 3/4/1980."
+    arr = _parse_pii_spans('[{"text": "Jordan Reyes", "label": "NAME"}]', text)
+    assert arr == [{"start": 8, "end": 20, "label": "NAME"}]
+    obj = _parse_pii_spans('{"entities": [{"text": "3/4/1980", "label": "DOB"}]}', text)
+    assert obj == [{"start": 30, "end": 38, "label": "DOB"}]
+
+
+def test_parse_pii_spans_supports_legacy_offsets():
+    from carenav.models.gateway import _parse_pii_spans
+
+    spans = _parse_pii_spans('[{"start": 5, "end": 10, "label": "NAME"}]', 20)
+    assert spans == [{"start": 5, "end": 10, "label": "NAME"}]
 
 
 def test_parse_pii_spans_drops_bad_label_and_out_of_range():
     from carenav.models.gateway import _parse_pii_spans
 
     spans = _parse_pii_spans(
-        '[{"start": 0, "end": 3, "label": "SSN"}, {"start": 0, "end": 99, "label": "NAME"}]',
+        '[{"text": "123-45-6789", "label": "SSN"}, {"start": 0, "end": 99, "label": "NAME"}]',
         5,
     )
     assert spans == []  # SSN not a model label; 0..99 exceeds text length
+
+
+def test_parse_pii_spans_resolves_repeated_values_in_order():
+    from carenav.models.gateway import _parse_pii_spans
+
+    text = "Jordan called Jordan again."
+    spans = _parse_pii_spans(
+        '[{"text": "Jordan", "label": "NAME"}, {"text": "Jordan", "label": "NAME"}]',
+        text,
+    )
+    assert spans == [
+        {"start": 0, "end": 6, "label": "NAME"},
+        {"start": 14, "end": 20, "label": "NAME"},
+    ]
 
 
 def test_parse_pii_spans_raises_on_garbage_so_caller_fails_safe():

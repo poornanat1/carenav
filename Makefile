@@ -3,7 +3,7 @@
         data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval run test lint fmt clean
 
 # Run python through the venv if present, else system.
-PY ?= python
+PY ?= $(shell test -x .venv/bin/python && echo .venv/bin/python || echo python3)
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) \
