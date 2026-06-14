@@ -52,7 +52,7 @@ session store, so the real identifier never travels through graph state or promp
 
 ## Implementation status
 
-**M2 agents shipped** (`carenav/agents/`): Member/Account, Coverage/Benefit, Claims, and
+**Specialist agents shipped** (`carenav/agents/`): Member/Account, Coverage/Benefit, Claims, and
 Provider-search — each a typed Pydantic in/out contract over Postgres, returning structured
 data and **never calling a model**. Every output carries a completeness signal
 (`complete`/`missing`) feeding `tool_conf` (docs/06). `member_ref → member_id` resolution

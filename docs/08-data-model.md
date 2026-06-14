@@ -48,5 +48,5 @@ See [02-tech-stack.md](02-tech-stack.md) for the settled DB decision.
 
 ## Build order
 
-The data pipeline is **M0** — the foundation. Demo: `make data` → populated Postgres +
-vector store with asserted row counts. See [13-build-plan.md](13-build-plan.md).
+The data pipeline is the foundation. Demo: `make data` → populated Postgres + vector
+store with asserted row counts. See [13-build-plan.md](13-build-plan.md).

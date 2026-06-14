@@ -19,7 +19,7 @@ Each doc is scoped to a subsystem so it can guide implementation independently.
 | 09 | [Eval Framework](09-eval.md) | CUJs, metrics, CI gates (§6) |
 | 11 | [Observability & Cost](11-observability.md) | Tracing + cost accounting (§8) |
 | 12 | [Scalability & Deployment](12-scalability.md) | Scale-out story (§9) |
-| 13 | [Build Plan](13-build-plan.md) | Milestones M0–M6 (§11) |
+| 13 | [Build Plan](13-build-plan.md) | Delivery sequence (§11) |
 | 14 | [Deployment Mapping](14-deployment-mapping.md) | Cloud-agnostic deployment mapping (§13) |
 | 15 | [Risks & Non-Goals](15-risks-non-goals.md) | Posture, hard boundaries (§12) |
 

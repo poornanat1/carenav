@@ -95,8 +95,7 @@ and must store redacted text only.
 
 ## Build order
 
-Redaction is **M3** in the [build plan](13-build-plan.md). The demo for M3 is:
-*show a captured model input, fully tokenized, with a clean audit log.*
+The redaction demo is: *show a captured model input, fully tokenized, with a clean audit log.*
 
 ## Managed-service analog
 

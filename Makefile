@@ -22,7 +22,7 @@ db-up: ## Start only the Postgres (pgvector) service
 db-down: ## Stop the stack
 	docker compose down
 
-# ---- M0: data pipeline (idempotent; asserts row counts) ----
+# ---- data pipeline (idempotent; asserts row counts) ----
 data: ## Run the full idempotent data pipeline (Synthea + NPPES + benefits + KB)
 	$(PY) -m carenav.data.pipeline
 
@@ -35,10 +35,10 @@ data-nppes: ## Load NPPES providers + plan_network
 data-benefits: ## Load hand-authored benefit rules
 	$(PY) -m carenav.data.pipeline --only benefits
 
-data-kb: ## Build the KB corpus + embeddings (M1)
+data-kb: ## Build the KB corpus + embeddings
 	$(PY) -m carenav.data.pipeline --only kb
 
-# ---- M3: PII detector (fine-tune free-text span extraction) ----
+# ---- PII detector (fine-tune free-text span extraction) ----
 pii-corpus: ## Generate the labeled PII corpus from Synthea members (needs `make data`)
 	$(PY) -m carenav.redaction.training.generate_corpus
 
@@ -51,11 +51,11 @@ debug-mistral-ft: ## Print a redacted Mistral fine-tuning diagnostic (no POST un
 eval-pii: ## Score the PII detector on the held-out split (P/R/F1 per entity)
 	$(PY) -m eval.pii.evaluate
 
-# ---- later milestones ----
-eval: ## Run the golden CUJ eval suite (M5)
+# ---- later stages ----
+eval: ## Run the golden CUJ eval suite
 	$(PY) -m eval.run
 
-run: ## Serve the FastAPI turn endpoint (M2+)
+run: ## Serve the FastAPI turn endpoint
 	uvicorn carenav.api.main:app --reload --host 0.0.0.0 --port 8000
 
 test: ## Run the test suite

@@ -85,7 +85,7 @@ A structured object (not prose) emitted by `escalate_human`:
 
 ## Implementation status
 
-**M2 + M4 shipped** (`carenav/orchestrator/`), as a typed Python pipeline — one function
+**Orchestrator and tiering shipped** (`carenav/orchestrator/`), as a typed Python pipeline — one function
 per node:
 - `route` — deterministic emergent triage + keyword fast paths + small-model intent
   classify ([router.py](../src/carenav/orchestrator/router.py));
@@ -100,10 +100,11 @@ per node:
 - composite confidence vs `TAU_HIGH`/`TAU_LOW`, **one frontier retry**, then the structured
   `escalate_human` handoff packet above.
 
-Served over FastAPI (`POST /turn`, [carenav/api/](../src/carenav/api/)). Remaining M3 node —
-`redact` — and session persistence extend this pipeline.
+Served over FastAPI (`POST /turn`, [carenav/api/](../src/carenav/api/)). Redaction is
+integrated at user-input and tool-output boundaries; session persistence extends this pipeline.
 
 ## Build order
 
-This pipeline is **M2** in the [build plan](13-build-plan.md). M1 ships a single
-RAG agent + grounding before the full orchestrator exists.
+This pipeline is part of the orchestrator delivery sequence in the
+[build plan](13-build-plan.md). A single RAG agent + grounding can ship before the full
+orchestrator exists.

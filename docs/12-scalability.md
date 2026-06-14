@@ -55,5 +55,5 @@ a managed queue, an external state store, and a model-serving endpoint.
 
 ## Build order
 
-Scalability is documented as part of **M6** alongside the deployment mapping.
-See [13-build-plan.md](13-build-plan.md).
+Scalability is documented alongside the deployment mapping. See
+[13-build-plan.md](13-build-plan.md).

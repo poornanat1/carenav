@@ -82,7 +82,7 @@ guess. (Echoed in [01](01-architecture.md) and [12](12-scalability.md).)
 
 ## Implementation status
 
-**`ModelGateway` v1 shipped with M1** (`carenav/models/gateway.py`) — the only module
+**`ModelGateway` v1 shipped with the RAG foundation** (`carenav/models/gateway.py`) — the only module
 that talks to provider APIs. It provides the provider-agnostic `generate()`/`embed()`
 interface, per-call **token + cost capture** (a `CostLedger`), **prompt capture** for
 the PII-leak gate, a per-call **timeout**, and **retry-with-backoff** on transient
@@ -90,7 +90,7 @@ the PII-leak gate, a per-call **timeout**, and **retry-with-backoff** on transie
 offline/no-quota runs. Embeddings require a Mistral key; Fireworks powers generation
 and the fine-tuned PII classifier path.
 
-**M4 tiering policy shipped** (`carenav/orchestrator/`): `ConfidenceBreakdown`
+**Tiering policy shipped** (`carenav/orchestrator/`): `ConfidenceBreakdown`
 (intent/retrieval/tool/self-eval, weighted) scored against `TAU_HIGH` (urgent) /
 `TAU_LOW`, emergent triage short-circuiting to Tier 3, **at most one** frontier retry,
 and human handoff with a structured packet — matching the pseudocode above. Tier-0
@@ -98,5 +98,5 @@ keyword fast paths in the router skip the LLM for unambiguous intents.
 
 ## Build order
 
-Tiering + escalation is **M4** in the [build plan](13-build-plan.md). The demo is the
-threshold-sweep chart: small-model coverage vs quality vs cost.
+The tiering + escalation demo is the threshold-sweep chart: small-model coverage vs
+quality vs cost.

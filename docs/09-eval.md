@@ -69,5 +69,5 @@ eval/
 
 ## Build order
 
-The eval harness + CI gates is **M5**. Demo: `make eval` → report; emergent-symptom +
-PII gates enforced. See [13-build-plan.md](13-build-plan.md).
+The eval harness + CI gates demo is: `make eval` → report; emergent-symptom + PII gates
+enforced. See [13-build-plan.md](13-build-plan.md).

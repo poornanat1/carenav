@@ -87,7 +87,7 @@ gateway** ([gateway.py](src/carenav/models/gateway.py)), which captures token co
 - **Specialist agents (tools):** Member/Account, Coverage/Benefit, Claims, Provider
   search — typed Pydantic in/out, structured data, **never call a model**. Their facts are
   wrapped as groundable sources and cited `[CHUNK:tool:<name>]` like KB chunks. The Triage
-  classifier lives in the `route` node. *(all built; redaction of tool output is the M3 node.)*
+  classifier lives in the `route` node. *(all built; tool-output redaction is built.)*
 - **Cross-cutting layers:** model gateway with cost capture, hybrid RAG retrieval,
   confidence tiering with frontier retry + human handoff *(built)*; PII redaction,
   telemetry, eval harness *(planned)*.
