@@ -1,6 +1,6 @@
-# CareNav — Multi-Agent Health-Benefits & Care Navigator
+# CareNav — Orchestrated Health-Benefits & Care Navigator
 
-A production-grade, multi-agent conversational assistant that helps health-plan
+A production-grade, tool-using conversational assistant that helps health-plan
 members with coverage, benefits, claims, provider search, and medication info — with a
 PII-redaction security layer, tiered-model cost optimization, and an eval-driven quality
 bar.

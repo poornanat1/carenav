@@ -2,7 +2,7 @@
 
 ## One-liner
 
-A production-grade, multi-agent conversational assistant that helps health-plan
+A production-grade, tool-using conversational assistant that helps health-plan
 members with coverage, benefits, claims, provider search, and medication info —
 with a PII-redaction security layer, tiered-model cost optimization, and an
 eval-driven quality bar.
@@ -51,7 +51,7 @@ is what keeps "containment rate" honest in a health context (see
 
 | Role topic | Where it lives |
 |---|---|
-| Conversational / agentic AI | Typed orchestrator pipeline + tool-using specialist agents ([03](03-orchestrator.md), [04](04-agents.md)) |
+| Conversational AI | Typed orchestrator pipeline + tool-using specialist agents ([03](03-orchestrator.md), [04](04-agents.md)) |
 | Security / protect sensitive client data | PII/PHI redaction layer; model never sees raw PHI ([05](05-redaction.md)) |
 | Performance & cost optimization | Tiered models + confidence-gated escalation; measured cost/conversation & p50/p99 ([06](06-model-tiering.md), [11](11-observability.md)) |
 | Operational excellence / eval | CUJ suite: task success, groundedness, containment, safety, PII-leak; CI-gated ([09](09-eval.md)) |
