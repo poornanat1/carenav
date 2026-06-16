@@ -7,11 +7,11 @@ Implements spec §4.4. Lives in `carenav/models/`.
 | Tier | What | When | Concrete (Fireworks) |
 |---|---|---|---|
 | **Tier 0 — no LLM** | Pure lookups / deterministic intents skip generation entirely | Deterministic answers | — |
-| **Tier 1 — small/cheap** | Routing + the majority of response generation | Confidence above bar | **`accounts/fireworks/models/gpt-oss-20b`** |
-| **Tier 2 — frontier** | Invoked only when confidence is low | One retry at higher quality | **`accounts/fireworks/models/gpt-oss-120b`** |
+| **Tier 1 — small/cheap** | Routing + the majority of response generation | Confidence above bar | **`accounts/fireworks/models/mistral-small-24b-instruct-2501`** |
+| **Tier 2 — frontier** | Invoked only when confidence is low | One retry at higher quality | **`accounts/fireworks/models/mistral-large-3-fp8`** |
 | **Tier 3 — human** | Safety escalation, or persistent low confidence on a high-stakes turn | Safety / give-up | Human handoff |
 
-> Generation uses **Fireworks** by default. Embeddings are backed by Mistral's
+> Generation uses **Fireworks-hosted Mistral** by default. Embeddings are backed by Mistral's
 > `mistral-embed` regardless of the generation provider. The `ModelGateway` stays provider-agnostic. See
 > [02-tech-stack.md](02-tech-stack.md).
 

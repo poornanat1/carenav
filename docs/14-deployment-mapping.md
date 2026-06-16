@@ -31,7 +31,8 @@ store.*
 The settled choices ([02](02-tech-stack.md)) make several of these mappings the
 **actual implementation**, not just analogs:
 
-- **Models** → Fireworks via API (`gpt-oss-20b` / `gpt-oss-120b`), reached through
+- **Models** → Fireworks via API (`mistral-small-24b-instruct-2501` /
+  `mistral-large-3-fp8`), reached through
   the provider-agnostic `ModelGateway`.
 - **PII detector** → Fireworks supervised fine-tune, deployed as a LoRA route on a
   base-model deployment.

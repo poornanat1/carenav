@@ -32,9 +32,10 @@ These are the two **hard gates**. Everything else is a tunable soft threshold.
 
 ## Settled decisions (from §14 of the spec)
 
-- **Models:** Fireworks (`accounts/fireworks/models/gpt-oss-20b` = small tier,
-  `accounts/fireworks/models/gpt-oss-120b` = frontier tier); Mistral remains the
-  embedding provider through `mistral-embed`.
+- **Models:** Fireworks-hosted Mistral
+  (`accounts/fireworks/models/mistral-small-24b-instruct-2501` = small tier,
+  `accounts/fireworks/models/mistral-large-3-fp8` = frontier tier); Mistral
+  remains the embedding provider through `mistral-embed`.
 - **Database / vector store:** managed Postgres + pgvector.
 - **Frontend:** React.
 

@@ -107,8 +107,9 @@ Both are CI-enforced ([docs/09-eval.md](docs/09-eval.md)).
 ## Tech stack
 
 Python 3.11+ · typed orchestrator pipeline · FastAPI · Pydantic v2 · Postgres + pgvector
-(hybrid vector + full-text) · three-layer PHI redaction · Fireworks
-(`gpt-oss-20b`/`gpt-oss-120b`) for generation and PII fine-tuning · Mistral
+(hybrid vector + full-text) · three-layer PHI redaction · Fireworks-hosted
+Mistral (`mistral-small-24b-instruct-2501`/`mistral-large-3-fp8`) for
+generation and Fireworks for PII fine-tuning · Mistral
 (`mistral-embed`) for embeddings · React frontend · OpenTelemetry. See
 [docs/02-tech-stack.md](docs/02-tech-stack.md).
 

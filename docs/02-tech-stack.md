@@ -23,7 +23,7 @@ These were left open in the spec and are now decided:
 
 | Decision | Choice | Implication |
 |---|---|---|
-| **Model providers** | **Fireworks** — `accounts/fireworks/models/gpt-oss-20b` (small/Tier 1), `accounts/fireworks/models/gpt-oss-120b` (frontier/Tier 2); **Mistral** — `mistral-embed` for embeddings | The gateway stays provider-agnostic while using Fireworks for generation and managed PII fine-tuning. Embeddings remain Mistral-backed at 1024 dimensions. |
+| **Model providers** | **Fireworks-hosted Mistral** — `accounts/fireworks/models/mistral-small-24b-instruct-2501` (small/Tier 1), `accounts/fireworks/models/mistral-large-3-fp8` (frontier/Tier 2); **Mistral** — `mistral-embed` for embeddings | The gateway stays provider-agnostic while using Fireworks for generation and managed PII fine-tuning. Embeddings remain Mistral-backed at 1024 dimensions. |
 | **Vector store** | **pgvector on Postgres** | One fewer moving part, prod-shaped. Retrieval is a single `hybrid_search` SQL function (vector + full-text). |
 | **Frontend** | **React** | Reads more "product" than Streamlit; costs more frontend time. |
 | **Structured DB** | **Postgres** | Same engine as the vector store. **Postgres everywhere** — pgvector + full-text are core to retrieval, dev, and prod. |
@@ -31,7 +31,8 @@ These were left open in the spec and are now decided:
 
 ## Design implications of the provider split
 
-- Tier 1 / Tier 2 map to Fireworks-hosted **`gpt-oss-20b` / `gpt-oss-120b`**.
+- Tier 1 / Tier 2 map to Fireworks-hosted Mistral
+  **`mistral-small-24b-instruct-2501` / `mistral-large-3-fp8`**.
 - The PII detector is trained as a Fireworks supervised fine-tune, then deployed as a
   LoRA route in the form `<fine_tuned_model>#<deployment>`.
 - Retrieval embeddings continue to use **`mistral-embed`**; keep `EMBEDDING_DIM=1024`

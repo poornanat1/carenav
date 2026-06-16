@@ -55,11 +55,11 @@ class Settings(BaseSettings):
     # model_provider controls chat/generation only. Embeddings are configured separately.
     model_provider: str = Field(default="fireworks", description="fireworks | mistral")
     model_small: str = Field(
-        default="accounts/fireworks/models/gpt-oss-20b",
+        default="accounts/fireworks/models/mistral-small-24b-instruct-2501",
         description="Tier 1 small/cheap model.",
     )
     model_frontier: str = Field(
-        default="accounts/fireworks/models/gpt-oss-120b",
+        default="accounts/fireworks/models/mistral-large-3-fp8",
         description="Tier 2 frontier model.",
     )
 
