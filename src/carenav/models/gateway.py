@@ -10,7 +10,7 @@ Backends:
   * **Fireworks** via FIREWORKS_API_KEY — default generation path and deployed PII LoRA
     inference.
   * **Mistral** via MISTRAL_API_KEY — embeddings (`mistral-embed`, 1024-dim) and an
-    alternate generation path.
+    optional generation fallback.
   * **Offline stub** when no generation key is configured — deterministic canned output
     so the agent, tests, and CI run with no generation spend. The stub is obvious (it
     echoes a fixed grounded sentence citing the first provided chunk id) so it is never
@@ -147,15 +147,14 @@ class ModelGateway:
         return self._client
 
     def using_real_models(self) -> bool:
-        """Whether a real Mistral backend is configured (used for embeddings)."""
+        """Whether any real model backend is configured for generation or PII calls."""
         return _real_backend_name() is not None
 
     def backend_name(self) -> str:
         return _real_backend_name() or "stub"
 
     def _generation_backend(self) -> str:
-        """Generation can be stubbed independently of embeddings (settings.stub_generation
-        or no credential), e.g. when a key has embedding quota but no generate quota."""
+        """Generation can be stubbed independently of embeddings."""
         if settings.stub_generation:
             return "stub"
         return _real_backend_name() or "stub"

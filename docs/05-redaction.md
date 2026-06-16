@@ -52,7 +52,7 @@ the regenerated 1,218-example held-out PII split (`python -m eval.pii.evaluate
 contract, so the fine-tune is carrying the model layer.
 
 Current provider settings live in `.env.example`: Fireworks handles generation and PII
-fine-tuning; Mistral remains the embedding provider. If `PII_MODEL` or the provider
+fine-tuning/deployment; Mistral handles embeddings/RAG. If `PII_MODEL` or the provider
 call is unavailable, the detector fails closed by contributing no layer-2 spans while
 field matching and regex continue to enforce the PII-leak gate.
 

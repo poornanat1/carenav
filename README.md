@@ -40,7 +40,7 @@ The order these are being built (and why) is in [docs/13-build-plan.md](docs/13-
 ## See it work (60 seconds)
 
 ```bash
-cp .env.example .env            # add a MISTRAL_API_KEY (embeddings + generation are real)
+cp .env.example .env            # add FIREWORKS_API_KEY for generation; MISTRAL_API_KEY for embeddings
 make db-up && make install      # Postgres (pgvector) + deps
 make data                       # build the dataset + embed the KB corpus
 

@@ -1,8 +1,9 @@
-"""RAG agent end-to-end against the live Postgres KB with real Mistral (embed + generate).
+"""RAG agent end-to-end against the live Postgres KB with real providers.
 
 Reads the already-ingested corpus (run the kb stage first). Requires Postgres + a
-MISTRAL_API_KEY with generation quota. Assertions are structural only (grounded/escalated,
-citations resolve, cited ids appear in the answer) — never exact LLM wording.
+MISTRAL_API_KEY for embeddings plus a configured generation backend. Assertions are
+structural only (grounded/escalated, citations resolve, cited ids appear in the answer) —
+never exact LLM wording.
 """
 
 from tests.conftest import requires_db, requires_generation

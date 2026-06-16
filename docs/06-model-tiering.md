@@ -11,8 +11,8 @@ Implements spec §4.4. Lives in `carenav/models/`.
 | **Tier 2 — frontier** | Invoked only when confidence is low | One retry at higher quality | **`accounts/fireworks/models/gpt-oss-120b`** |
 | **Tier 3 — human** | Safety escalation, or persistent low confidence on a high-stakes turn | Safety / give-up | Human handoff |
 
-> Generation uses **Fireworks** by default. Embeddings are still backed by Mistral's
-> `mistral-embed`. The `ModelGateway` stays provider-agnostic. See
+> Generation uses **Fireworks** by default. Embeddings are backed by Mistral's
+> `mistral-embed` regardless of the generation provider. The `ModelGateway` stays provider-agnostic. See
 > [02-tech-stack.md](02-tech-stack.md).
 
 ## Composite confidence
@@ -68,7 +68,7 @@ This sweep is produced by `eval/run.py` ([09-eval.md](09-eval.md)).
 
 A thin abstraction (`carenav/models/`) — **the only place provider SDKs are imported.**
 
-- Provider-agnostic call interface (Fireworks default for generation; Mistral for embeddings).
+- Provider-agnostic call interface (Fireworks default for generation; Mistral for embeddings/RAG).
 - Per-call **tier + cost capture**: input/output tokens × per-model price.
 - **Prompt capture** for the PII-leak gate (cold path, redacted only — see [05](05-redaction.md)).
 - At scale: rate-limiting, retries with backoff, semantic cache ([12](12-scalability.md)).
@@ -88,7 +88,7 @@ interface, per-call **token + cost capture** (a `CostLedger`), **prompt capture*
 the PII-leak gate, a per-call **timeout**, and **retry-with-backoff** on transient
 429/5xx. Generation can be stubbed independently of embeddings (`stub_generation`) for
 offline/no-quota runs. Embeddings require a Mistral key; Fireworks powers generation
-and the fine-tuned PII classifier path.
+and the fine-tuned PII classifier/deployment path.
 
 **Tiering policy shipped** (`carenav/orchestrator/`): `ConfidenceBreakdown`
 (intent/retrieval/tool/self-eval, weighted) scored against `TAU_HIGH` (urgent) /

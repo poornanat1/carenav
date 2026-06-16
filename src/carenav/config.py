@@ -51,7 +51,8 @@ class Settings(BaseSettings):
     nppes_max_providers: int = Field(default=5000, description="Cap providers loaded from NPPES.")
     nppes_states: str = Field(default="NJ,NY", description="Comma-separated states to keep.")
 
-    # --- models (Fireworks default; gateway stays provider-agnostic) ---
+    # --- generation models (Fireworks default; gateway stays provider-agnostic) ---
+    # model_provider controls chat/generation only. Embeddings are configured separately.
     model_provider: str = Field(default="fireworks", description="fireworks | mistral")
     model_small: str = Field(
         default="accounts/fireworks/models/gpt-oss-20b",
@@ -62,9 +63,8 @@ class Settings(BaseSettings):
         description="Tier 2 frontier model.",
     )
 
-    # Force the gateway's offline stub for *generation* even when a Mistral credential is
-    # present. Embeddings are unaffected (always real). Useful when a credential has
-    # embedding quota but no chat quota, or to run the loop without spend.
+    # Force the gateway's offline stub for *generation* even when a generation credential is
+    # present. Embeddings are unaffected (always real). Useful to run the loop without spend.
     stub_generation: bool = Field(default=False, description="Use the stub generator only.")
 
     # Per-million-token prices (USD) for cost capture in the gateway. Keyed by model name;
@@ -72,8 +72,8 @@ class Settings(BaseSettings):
     # pricing changes — these feed the cost/conversation metric in the eval.
     model_request_timeout_s: float = Field(default=30.0, description="Per model call timeout.")
 
-    # Reaching Mistral — a single API key (from https://console.mistral.ai/) is REQUIRED
-    # (embeddings are always real). It serves both chat generation and embeddings.
+    # Mistral powers embeddings/RAG. It can also serve as a generation fallback when
+    # MODEL_PROVIDER=mistral or when Fireworks is not configured.
     mistral_api_key: str | None = Field(
         default=None, description="Mistral API key (from console.mistral.ai)."
     )
@@ -107,10 +107,9 @@ class Settings(BaseSettings):
     rag_lex_weight: float = Field(default=0.1)
 
     # --- redaction / PII detector ---
-    # The fine-tuned PII tagger id (layer 2 of the redaction stack). None until a
-    # fine-tuning job has run (`make train-pii`); when unset, layer 2 degrades to the
-    # spaCy/regex detector so the PII-leak hard gate still passes offline (layers 1+3 carry
-    # it). See internal/phase-3-plan.md.
+    # Deployed Fireworks LoRA route for layer 2 of the redaction stack:
+    # <fine_tuned_model>#<deployment>. When unset, layer 2 is skipped and layers 1+3 carry
+    # the offline/no-key path.
     pii_model: str | None = Field(
         default=None, description="Fine-tuned Fireworks PII-detection model id."
     )

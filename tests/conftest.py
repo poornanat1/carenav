@@ -3,8 +3,8 @@
 CareNav runs on **Postgres everywhere** (pgvector + the hybrid_search full-text function).
 Tests run against the configured DATABASE_URL — the docker-compose pgvector service by
 default. `requires_db` skips DB-backed tests cleanly when Postgres is unreachable (so
-pure-logic tests still run anywhere); `requires_mistral` / `requires_generation` skip the
-real-Mistral paths when no key/quota is configured.
+pure-logic tests still run anywhere); `requires_mistral` / `requires_generation` skip real
+provider paths when no key/quota is configured.
 """
 
 from __future__ import annotations
@@ -46,7 +46,7 @@ requires_mistral = pytest.mark.skipif(not _has_mistral(), reason="needs a MISTRA
 
 @functools.lru_cache(maxsize=1)
 def _can_generate() -> bool:
-    """Probe whether the configured key actually has chat (generation) quota.
+    """Probe whether the configured generation backend actually works.
 
     Cached so the probe costs at most one call per session; the agent tests use real
     generation per the project decision, so they skip cleanly if generation is unavailable.
@@ -63,5 +63,5 @@ def _can_generate() -> bool:
 
 
 requires_generation = pytest.mark.skipif(
-    not _can_generate(), reason="key has no chat/generation quota"
+    not _can_generate(), reason="configured generation backend is unavailable"
 )
