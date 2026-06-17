@@ -18,36 +18,45 @@ directory is a placeholder for a roadmap item.)
 
 | Capability | What it does | Where |
 |---|---|---|
-| **Data pipeline** | One command builds the demo dataset — real Synthea members/claims/conditions, real public providers (NPPES), a benefit-rule table, and a knowledge-base corpus embedded into Postgres/pgvector. | `src/carenav/data`, `src/carenav/rag/ingest_kb.py` |
+| **Data pipeline** | One command builds the demo dataset — real Synthea members/claims/conditions, real public providers (NPPES), a benefit-rule table, a generated Synthea condition index, and a knowledge-base corpus embedded into Postgres/pgvector. | `src/carenav/data`, `src/carenav/rag/ingest_kb.py`, `scripts/generate_condition_index.py` |
 | **Grounded Q&A** | Ask a benefits/medication question → a cited, fact-checked answer. Every sentence must cite a source chunk; unsupported claims are stripped or the answer escalates instead of guessing. | `src/carenav/rag` |
 | **Hybrid retrieval** | One Postgres function (`hybrid_search`): pgvector ANN + weighted full-text + a doc-level relevance prune, so named entities (a specific drug, the Silver plan) anchor correctly. | `src/carenav/rag/sql` |
 | **Orchestrator + tools** | A typed node pipeline routes a turn (safety triage → intent → decompose → run specialist tools → grounded answer → verify → escalate). Tools (member, coverage, claims, provider) return structured data and their facts are cited & grounded like KB chunks. | `src/carenav/{orchestrator,agents}` |
 | **Tiered routing + escalation** | Composite confidence picks a cheap model when confident, a stronger one when not, a human when neither is safe. Emergent turns escalate immediately. | `src/carenav/orchestrator` |
-| **FastAPI endpoint** | `POST /turn` runs a member turn and returns the structured answer or escalation handoff. | `src/carenav/api` |
+| **PII redaction** | User text and tool-output sources are tokenized before model calls; the final answer is rehydrated only at the response boundary. Deterministic field/regex detection and the Fireworks fine-tune training path are in place. | `src/carenav/redaction` |
+| **FastAPI API** | `POST /turn` runs a member turn and returns the structured answer, citations with source excerpts, or escalation handoff. `GET /members` and `GET /members/{id}/suggested-questions` power the demo member selector. | `src/carenav/api` |
+| **Selected-member profile routing** | When a demo member is selected, profile-only questions answer from selected member facts, general education questions stay on the public KB, and mixed risk questions combine profile signals with KB sources. | `src/carenav/api/profile_turn.py`, `src/carenav/api/query_analyzer.py` |
+| **React frontend** | A Vite/React chat UI with member selection, suggested questions, confidence/status pills, grouped sources, and inline citation markers that reveal chunk IDs and source excerpts on hover. | `frontend/` |
 | **Model gateway** | The one place any AI provider is called. Captures token cost per call, retries on rate limits, and can run a no-cost offline stub. | `src/carenav/models` |
 
 ## Roadmap
 
 | Capability | What it will add | Where |
 |---|---|---|
-| **PII redaction** | Replace patient info with tokens before anything reaches a model; rehydrate only the final reply. | `src/carenav/redaction` |
 | **Eval + CI gates** | A golden test set that fails the build if safety or grounding regresses. | `eval/` |
 | **Observability** | OpenTelemetry per-turn span tree + structured logs. | `src/carenav/telemetry` |
-| **Frontend** | React chat view over the `/turn` endpoint. | `frontend/` |
 
 The order these are being built (and why) is in [docs/13-build-plan.md](docs/13-build-plan.md).
 
 ## See it work (60 seconds)
 
 ```bash
-cp .env.example .env            # add FIREWORKS_API_KEY for generation; MISTRAL_API_KEY for embeddings
+cp .env.example .env            # add MISTRAL_API_KEY for generation + embeddings
 make db-up && make install      # Postgres (pgvector) + deps
-make data                       # build the dataset + embed the KB corpus
+make data                       # build data, condition index, and embedded KB corpus
 
 # ask a grounded, cited question through the orchestrator:
 python -c "from carenav.orchestrator import run_turn as t; \
 r=t('What are the side effects of metformin?'); \
 print(r.answer); print([c.chunk_id for c in r.citations])"
+```
+
+To run the browser UI:
+
+```bash
+make run                        # FastAPI on http://localhost:8000
+make frontend-install           # once, if frontend deps are not installed
+make frontend                   # React app on http://localhost:5173
 ```
 
 A multi-tool turn fuses the member's record with plan rules — e.g. *"Have I met my
@@ -65,18 +74,20 @@ docker compose exec app make data
 ```
 
 `make` targets: `make help` lists them. Key ones — `make data` (build dataset),
-`make test` (suite), `make run` (FastAPI `/turn` endpoint), `make eval` (safety/grounding
-gates, once built). Python 3.11+ is required; use the container if older.
+`make condition-index` (regenerate the Synthea condition bridge), `make test` (suite),
+`make run` (FastAPI API), `make frontend` (React dev server), `make frontend-build`
+(type-check + production build), and `make eval` (safety/grounding gates, once built).
+Python 3.11+ is required; use the container if older.
 
 ## Architecture
 
-The turn flow. Steps in **bold** run today; `redact` is the remaining planned node.
+The turn flow. Steps in **bold** run today.
 
 ```
-user turn → Orchestrator (typed node pipeline):
-  **safety_triage → route → decompose →**
+user turn → API selected-member gate → Orchestrator (typed node pipeline):
+  **profile/general/mixed query analysis → redact → safety_triage → route → decompose →**
   **[plan → tool_exec → reflect] → generate →**
-  **groundedness_check → verify →** redact → respond / escalate
+  **groundedness_check → verify → respond / escalate**
 ```
 
 The orchestrator is a **hand-written, typed Python pipeline** — one pure function per node
@@ -88,11 +99,14 @@ gateway** ([gateway.py](src/carenav/models/gateway.py)), which captures token co
   search — typed Pydantic in/out, structured data, **never call a model**. Their facts are
   wrapped as groundable sources and cited `[CHUNK:tool:<name>]` like KB chunks. The Triage
   classifier lives in the `route` node. *(all built; tool-output redaction is built.)*
+- **API profile layer:** selected synthetic members are exposed through stable demo refs,
+  profile facts are wrapped as citeable tool sources, and general education questions
+  stay grounded in the public KB even when a member is selected.
 - **Cross-cutting layers:** model gateway with cost capture, hybrid RAG retrieval,
-  confidence tiering with frontier retry + human handoff *(built)*; PII redaction,
-  telemetry, eval harness *(planned)*.
+  confidence tiering with frontier retry + human handoff, and PII redaction *(built)*;
+  telemetry and the full eval harness remain planned/hardening.
 - **Data:** Synthea (members/claims/conditions/FHIR) · NPPES (providers) · benefit-rule
-  table · KB corpus (vector store). *(all built.)*
+  table · generated condition index · KB corpus (vector store). *(all built.)*
 
 See [docs/01-architecture.md](docs/01-architecture.md) and
 [docs/03-orchestrator.md](docs/03-orchestrator.md).
@@ -107,11 +121,10 @@ Both are CI-enforced ([docs/09-eval.md](docs/09-eval.md)).
 ## Tech stack
 
 Python 3.11+ · typed orchestrator pipeline · FastAPI · Pydantic v2 · Postgres + pgvector
-(hybrid vector + full-text) · three-layer PHI redaction · Fireworks-hosted
-Mistral (`mistral-small-24b-instruct-2501`/`mistral-large-3-fp8`) for
-generation and Fireworks for PII fine-tuning · Mistral
-(`mistral-embed`) for embeddings · React frontend · OpenTelemetry. See
-[docs/02-tech-stack.md](docs/02-tech-stack.md).
+(hybrid vector + full-text) · three-layer PHI redaction · Mistral
+(`mistral-small-latest`/`mistral-large-latest`) for generation by default · Fireworks for
+optional PII fine-tuning/deployment · Mistral (`mistral-embed`) for embeddings · React
+with Vite frontend · OpenTelemetry. See [docs/02-tech-stack.md](docs/02-tech-stack.md).
 
 ## Repo layout
 
@@ -124,11 +137,11 @@ src/carenav/
   models/       ✅ model gateway (the only place a provider SDK is imported)
   orchestrator/ ✅ typed node pipeline (route, decompose, tool loop, verify, escalate)
   agents/       ✅ specialist tools (member, benefits, claims, provider)
-  api/          ✅ FastAPI turn endpoint
+  api/          ✅ FastAPI API, member summaries, selected-profile routing
   redaction/    ✅ PII detection, tokenization, Fireworks SFT training
   telemetry/    ⬜ tracing + structured logs
 eval/           ⬜ golden test set · metrics · run.py
-frontend/       ⬜ React chat (not yet created)
+frontend/       ✅ React chat UI
 docs/           design docs for the full target system (see below)
 tests/          pytest suite for the built modules
 ```
