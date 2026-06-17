@@ -2,12 +2,14 @@
 (no DB, no network: those paths short-circuit before retrieval); the LLM-backed
 decompose split needs real generation and skips without quota."""
 
+from carenav.agents.contracts import BenefitLookupOutput
 from carenav.config import settings
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.decompose import _COMPARATIVE, decompose
 from carenav.orchestrator.router import _fast_path, triage
 from carenav.orchestrator.state import ConfidenceBreakdown
+from carenav.orchestrator.tools import _benefit_text, infer_service_category
 from carenav.orchestrator.verify import verify_citations
 from carenav.rag.agent import Citation, RagAnswer
 from carenav.rag.retrieval import Hit
@@ -146,6 +148,33 @@ def test_member_context_required_without_ref(monkeypatch):
     monkeypatch.setattr(settings, "stub_generation", True)
     r = run_turn("Have I met my deductible yet?")  # no member_ref
     assert r.escalated and r.handoff.reason == "member_context_required"
+
+
+def test_llm_service_category_maps_unusual_test_to_lab_panel():
+    class FakeGateway:
+        def generate(self, *_args, **_kwargs):
+            class Response:
+                text = "lab_panel"
+
+            return Response()
+
+    assert infer_service_category("is ca-125 covered", FakeGateway()) == "lab_panel"
+
+
+def test_benefit_source_keeps_requested_service_mapping():
+    out = BenefitLookupOutput(
+        plan_id="PLN-GOLD",
+        service_key="lab_panel",
+        covered=True,
+        coinsurance=0.2,
+        prior_auth_required=False,
+        notes="Diagnostic labs.",
+    )
+
+    text = _benefit_text(out, requested_service="is ca-125 covered")
+
+    assert "categorized for benefit lookup as lab panel" in text
+    assert "Under this plan, lab panel is covered" in text
 
 
 @requires_db

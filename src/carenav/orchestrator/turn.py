@@ -152,7 +152,7 @@ def run_turn(
             return _escalate(question, intent, [question], [], conf,
                              "member_context_required", safety, "human",
                              gw.ledger.total_cost_usd)
-        tool_run = _tools.exec_and_reflect(question, member_ref, plan)
+        tool_run = _tools.exec_and_reflect(question, member_ref, plan, gw)
         if not tool_run.member_id_resolved:
             conf = ConfidenceBreakdown(intent_conf=intent_conf)
             return _escalate(question, intent, [question], [], conf,

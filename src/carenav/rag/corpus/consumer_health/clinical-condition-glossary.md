@@ -34,6 +34,11 @@ Ischemic heart disease means the heart muscle is not getting enough blood and ox
 most often because coronary arteries are narrowed by plaque. Coronary artery disease is
 the most common form of ischemic heart disease.
 
+Coronary artery bypass grafting, often called CABG or bypass surgery, is an operation
+that creates a new route for blood to flow around blocked or narrowed coronary arteries.
+"History of coronary artery bypass grafting" means the person previously had that bypass
+surgery; it is a past medical-history item rather than a new diagnosis by itself.
+
 ## Lipid and metabolic terms
 
 Hypertriglyceridemia means the level of triglycerides, a type of fat in the blood, is too

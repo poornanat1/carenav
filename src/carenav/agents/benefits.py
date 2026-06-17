@@ -19,7 +19,10 @@ _ALIASES: list[tuple[str, str]] = [
     (r"\bmri\b|\bct scan\b|\badvanced imaging\b|\bimaging\b", "MRI"),
     (r"\bspecialist\b", "specialist_visit"),
     (r"\bprimary care\b|\boffice visit\b|\bdoctor('s)? visit\b|\bpcp\b", "office_visit"),
-    (r"\blab\b|\bblood (test|work|panel)\b|\bmetabolic panel\b", "lab_panel"),
+    (
+        r"\blab\b|\btest\b|\bblood (test|work|panel)\b|\bmetabolic panel\b",
+        "lab_panel",
+    ),
     (r"\bpreventive\b|\bannual (visit|checkup|physical)\b|\bwellness\b|\bscreening\b",
      "preventive_visit"),
     (r"\bemergency room\b|\b er \b|\ber visit\b|\bemergency\b", "emergency_room"),

@@ -29,12 +29,38 @@ from carenav.agents import (
 )
 from carenav.agents.benefits import normalize_service
 from carenav.agents.contracts import AgentOutput
+from carenav.models import ModelGateway
 from carenav.rag.retrieval import Hit
+
+_SERVICE_KEYS = {
+    "MRI",
+    "specialist_visit",
+    "office_visit",
+    "lab_panel",
+    "preventive_visit",
+    "emergency_room",
+}
+
+_SERVICE_CLASSIFY_PROMPT = """Classify the requested health-plan service into one benefit key.
+
+Allowed keys:
+- MRI: advanced imaging such as MRI, CT, or diagnostic imaging.
+- specialist_visit: specialist clinician visits.
+- office_visit: primary care or general office visits.
+- lab_panel: diagnostic lab tests, blood work, tumor-marker tests, chemistry panels,
+  or other ordered laboratory testing.
+- preventive_visit: annual physicals, wellness visits, preventive screenings.
+- emergency_room: emergency room or ER visits.
+- null: not enough information to map to one key.
+
+Question: {question}
+
+Reply with only one allowed key."""
 
 # Service mentions that trigger a benefit lookup (mirrors benefits._ALIASES coverage).
 _SERVICE_RE = re.compile(
     r"\bmri\b|\bct scan\b|\bimaging\b|\bspecialist\b|\boffice visit\b|\bprimary care\b|"
-    r"\blab\b|\bblood (test|work|panel)\b|\bpreventive\b|\bwellness\b|\bscreening\b|"
+    r"\blab\b|\btest\b|\bblood (test|work|panel)\b|\bpreventive\b|\bwellness\b|\bscreening\b|"
     r"\bemergency room\b|\ber visit\b",
     re.IGNORECASE,
 )
@@ -88,6 +114,19 @@ def plan_tools(question: str, intent: str | None) -> ToolPlan:
     return p
 
 
+def infer_service_category(question: str, gateway: ModelGateway) -> str | None:
+    """Use the model to map unusual service names to a constrained benefit category."""
+    try:
+        raw = gateway.generate(
+            _SERVICE_CLASSIFY_PROMPT.format(question=question),
+            label="orchestrator.service_category",
+        ).text.strip()
+    except Exception:
+        return None
+    normalized = raw.strip().strip("\"'`.").split()[0].strip("\"'`.,")
+    return normalized if normalized in _SERVICE_KEYS else None
+
+
 def _hit(tool_id: str, title: str, text: str) -> Hit:
     """Wrap a structured tool fact as a groundable pseudo-chunk."""
     return Hit(
@@ -122,7 +161,7 @@ def _member_text(o) -> str:
     return " ".join(parts)
 
 
-def _benefit_text(o) -> str:
+def _benefit_text(o, requested_service: str | None = None) -> str:
     if o.covered is None:
         return ""
     svc = (o.service_key or "the service").replace("_", " ")
@@ -134,7 +173,12 @@ def _benefit_text(o) -> str:
     )
     auth = " Prior authorization is required." if o.prior_auth_required else ""
     note = f" {o.notes}" if o.notes else ""
-    return f"Under this plan, {svc} is {cov} with {cost}.{auth}{note}"
+    mapping = (
+        f"The requested service was categorized for benefit lookup as {svc}. "
+        if requested_service and normalize_service(requested_service) != o.service_key
+        else ""
+    )
+    return f"{mapping}Under this plan, {svc} is {cov} with {cost}.{auth}{note}"
 
 
 def _claims_text(o) -> str:
@@ -150,7 +194,12 @@ def _claims_text(o) -> str:
     return " ".join(lines)
 
 
-def exec_and_reflect(question: str, member_ref: str | None, plan: ToolPlan) -> ToolRun:
+def exec_and_reflect(
+    question: str,
+    member_ref: str | None,
+    plan: ToolPlan,
+    gateway: ModelGateway | None = None,
+) -> ToolRun:
     """`tool_exec` + `reflect`: run the planned tools, assemble sources, compute tool_conf."""
     run = ToolRun()
     completes: list[bool] = []
@@ -167,11 +216,14 @@ def exec_and_reflect(question: str, member_ref: str | None, plan: ToolPlan) -> T
             run.sources.append(_hit("member_account", "Your member account", text))
 
     if plan.needs_benefit and member_out is not None and member_out.plan_id:
-        service = plan.service_mention or question
+        inferred_service = None
+        if plan.service_mention is None and gateway is not None:
+            inferred_service = infer_service_category(question, gateway)
+        service = plan.service_mention or inferred_service or question
         ben = benefit_lookup(BenefitLookupInput(plan_id=member_out.plan_id, service=service))
         run.outputs["benefit_lookup"] = ben
         completes.append(ben.complete)
-        text = _benefit_text(ben)
+        text = _benefit_text(ben, requested_service=question if service != question else None)
         if text:
             run.sources.append(_hit("benefit_lookup", "Your plan benefits", text))
 
