@@ -18,6 +18,7 @@ _CORPUS = (
     Path(__file__).parent.parent
     / "src" / "carenav" / "rag" / "corpus" / "consumer_health"
 )
+_CONDITION_INDEX = _CORPUS / "synthea-condition-index.md"
 
 
 def _clinical_codes():
@@ -74,3 +75,13 @@ def test_known_conditions_classify_sensibly():
     }
     for display, expected in cases.items():
         assert condition_topics.topic_for(display) == expected, display
+
+
+def test_condition_index_names_every_clinical_display():
+    text = _CONDITION_INDEX.read_text()
+    missing = [
+        c["display"]
+        for c in _clinical_codes()
+        if condition_topics.topic_for(c["display"]) is not None and c["display"] not in text
+    ]
+    assert missing == [], f"condition index missing clinical labels: {missing[:10]}"

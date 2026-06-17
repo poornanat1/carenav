@@ -16,6 +16,9 @@ cheese. When the level of cholesterol in your blood is too high, it can combine 
 substances to form plaque that builds up in the walls of your arteries, a process called
 atherosclerosis. High cholesterol usually has no symptoms.
 
+Hypertriglyceridemia means the level of triglycerides, a type of fat in the blood, is too
+high. Triglycerides are measured on a lipid panel along with LDL and HDL cholesterol.
+
 ## Why it matters
 
 As plaque builds up, it can narrow or block the coronary arteries, which can cause angina

@@ -16,6 +16,10 @@ substance called plaque builds up in the arteries that supply the heart muscle w
 blood. The family also includes arrhythmias (irregular heartbeats), heart failure, heart
 valve disease, and diseases of the heart muscle such as cardiomyopathy.
 
+Myocardial infarction means heart attack. An acute ST-segment elevation myocardial
+infarction, often called STEMI, is a type of heart attack pattern seen on an
+electrocardiogram when blood flow to part of the heart muscle is blocked.
+
 ## Symptoms and signs
 
 Symptoms vary widely depending on the type of heart disease, and some people have none at
