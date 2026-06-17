@@ -10,6 +10,11 @@ export default defineConfig({
             '/members': 'http://127.0.0.1:8000',
         },
     },
+    preview: {
+        // Allow the Railway-assigned domain when serving the production build via
+        // `vite preview`; without this, Vite returns "Blocked request" for unknown hosts.
+        allowedHosts: ['.up.railway.app', '.railway.app'],
+    },
     resolve: {
         alias: {
             '@': path.resolve(__dirname, './src'),

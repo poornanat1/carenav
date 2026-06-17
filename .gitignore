@@ -45,3 +45,5 @@ synthea/
 node_modules/
 frontend/dist/
 frontend/build/
+# TypeScript incremental build cache (machine-specific)
+frontend/*.tsbuildinfo
