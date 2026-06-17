@@ -10,6 +10,7 @@ from __future__ import annotations
 import secrets
 
 _REF_TO_MEMBER: dict[str, str] = {}
+_DEMO_PREFIX = "mref_demo:"
 
 
 def create_member_ref(member_id: str) -> str:
@@ -19,10 +20,17 @@ def create_member_ref(member_id: str) -> str:
     return ref
 
 
+def create_demo_member_ref(member_id: str) -> str:
+    """Issue a reload-stable ref for synthetic demo members exposed in the frontend."""
+    return f"{_DEMO_PREFIX}{member_id}"
+
+
 def resolve_member_ref(member_ref: str | None) -> str | None:
     """Resolve a ref to the real member_id; None if absent/unknown (caller degrades)."""
     if not member_ref:
         return None
+    if member_ref.startswith(_DEMO_PREFIX):
+        return member_ref[len(_DEMO_PREFIX):] or None
     return _REF_TO_MEMBER.get(member_ref)
 
 

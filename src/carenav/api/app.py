@@ -1,52 +1,39 @@
-"""FastAPI async turn endpoint (docs/03 node 11 / docs/01) — serves the orchestrator.
-
-POST /turn runs one member turn through run_turn and returns the structured result
-(answer + citations, or an escalation handoff). The orchestrator is sync + DB/LLM-bound,
-so it runs in a threadpool to keep the event loop free.
-
-This is the serving surface used by the React frontend.
-"""
+"""FastAPI serving surface for CareNav."""
 
 from __future__ import annotations
 
+import re
+
 from fastapi import FastAPI
 from fastapi.concurrency import run_in_threadpool
-from pydantic import BaseModel, Field
+from fastapi.middleware.cors import CORSMiddleware
 
+from carenav.agents import create_demo_member_ref
+from carenav.api.members import list_member_summaries, suggested_questions_for_member
+from carenav.api.profile_turn import profile_turn
+from carenav.api.schemas import (
+    CitationOut,
+    HandoffOut,
+    MemberSummary,
+    SuggestedQuestion,
+    TurnRequest,
+    TurnResponse,
+)
+from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
+from carenav.orchestrator.state import TurnResult
 
 app = FastAPI(title="CareNav", version="0.1.0")
-
-
-class TurnRequest(BaseModel):
-    question: str = Field(min_length=1)
-    member_ref: str | None = None
-
-
-class CitationOut(BaseModel):
-    chunk_id: str
-    title: str
-    source_url: str | None = None
-
-
-class HandoffOut(BaseModel):
-    reason: str
-    suspected_intent: str | None
-    safety_flag: str
-    gathered: list[str]
-
-
-class TurnResponse(BaseModel):
-    answer: str
-    intent: str | None
-    grounded: bool
-    escalated: bool
-    citations: list[CitationOut]
-    handoff: HandoffOut | None
-    tier_used: str
-    safety_flag: str
-    confidence: float
-    cost_usd: float
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "OPTIONS"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/health")
@@ -54,16 +41,50 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
-@app.post("/turn", response_model=TurnResponse)
-async def turn(req: TurnRequest) -> TurnResponse:
-    result = await run_in_threadpool(run_turn, req.question, req.member_ref)
+@app.get("/members", response_model=list[MemberSummary])
+async def members() -> list[MemberSummary]:
+    return await run_in_threadpool(list_member_summaries)
+
+
+@app.get("/members/{member_id}/suggested-questions", response_model=list[SuggestedQuestion])
+async def suggested_questions(member_id: str) -> list[SuggestedQuestion]:
+    return await run_in_threadpool(suggested_questions_for_member, member_id)
+
+
+def _member_ref(req: TurnRequest) -> str | None:
+    return req.member_ref or (create_demo_member_ref(req.member_id) if req.member_id else None)
+
+
+def _excerpt(text: str, limit: int = 420) -> str:
+    compact = re.sub(r"\s+", " ", text).strip()
+    if len(compact) <= limit:
+        return compact
+    return compact[: limit - 1].rstrip() + "..."
+
+
+def _citation_excerpts(result: TurnResult) -> dict[str, str]:
+    excerpts: dict[str, str] = {}
+    for answer in result.rag_answers:
+        for hit in answer.hits:
+            if hit.chunk_id not in excerpts:
+                excerpts[hit.chunk_id] = _excerpt(hit.text)
+    return excerpts
+
+
+def _serialize_turn(result: TurnResult) -> TurnResponse:
+    excerpts = _citation_excerpts(result)
     return TurnResponse(
         answer=result.answer,
         intent=result.intent,
         grounded=result.grounded,
         escalated=result.escalated,
         citations=[
-            CitationOut(chunk_id=c.chunk_id, title=c.title, source_url=c.source_url or None)
+            CitationOut(
+                chunk_id=c.chunk_id,
+                title=c.title,
+                source_url=c.source_url or None,
+                excerpt=excerpts.get(c.chunk_id),
+            )
             for c in result.citations
         ],
         handoff=(
@@ -81,3 +102,19 @@ async def turn(req: TurnRequest) -> TurnResponse:
         confidence=result.confidence.weighted_sum(),
         cost_usd=result.cost_usd,
     )
+
+
+@app.post("/turn", response_model=TurnResponse)
+async def turn(req: TurnRequest) -> TurnResponse:
+    gateway = ModelGateway()
+    profile_result = (
+        await run_in_threadpool(
+            profile_turn, req.question, req.member_ref, req.member_id, gateway
+        )
+        if req.member_ref or req.member_id
+        else None
+    )
+    result = profile_result or await run_in_threadpool(
+        run_turn, req.question, _member_ref(req), gateway
+    )
+    return _serialize_turn(result)
