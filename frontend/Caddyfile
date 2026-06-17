@@ -1,0 +1,12 @@
+# Serve the static SPA on the Railway-injected $PORT with index.html fallback.
+{
+	admin off
+	auto_https off
+}
+
+:{$PORT} {
+	root * /srv
+	encode gzip
+	try_files {path} /index.html
+	file_server
+}
