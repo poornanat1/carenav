@@ -1,0 +1,12 @@
+@import url('https://fonts.googleapis.com/css2?family=Barlow:wght@300;400;500;700;900&family=Barlow+Condensed:wght@400;700&family=DM+Mono:wght@400;500&display=swap');
+
+:root {
+  --font-sans: 'Barlow', system-ui, -apple-system, sans-serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+  --font-display: 'Barlow', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-weight: 300;
+}

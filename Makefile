@@ -1,6 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help install lock db-up db-down data data-synthea data-nppes data-benefits \
-        data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval run test lint fmt clean
+        condition-index data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval run \
+        frontend-install frontend frontend-build test lint fmt clean
 
 # Run python through the venv if present, else system.
 PY ?= $(shell test -x .venv/bin/python && echo .venv/bin/python || echo python3)
@@ -35,7 +36,10 @@ data-nppes: ## Load NPPES providers + plan_network
 data-benefits: ## Load hand-authored benefit rules
 	$(PY) -m carenav.data.pipeline --only benefits
 
-data-kb: ## Build the KB corpus + embeddings
+condition-index: ## Generate Synthea condition index KB doc
+	$(PY) scripts/generate_condition_index.py
+
+data-kb: condition-index ## Build the KB corpus + embeddings
 	$(PY) -m carenav.data.pipeline --only kb
 
 # ---- PII detector (fine-tune free-text span extraction) ----
@@ -56,7 +60,16 @@ eval: ## Run the golden CUJ eval suite
 	$(PY) -m eval.run
 
 run: ## Serve the FastAPI turn endpoint
-	uvicorn carenav.api.main:app --reload --host 0.0.0.0 --port 8000
+	$(PY) -m uvicorn carenav.api.app:app --reload --host 0.0.0.0 --port 8000
+
+frontend-install: ## Install frontend deps
+	cd frontend && npm install
+
+frontend: ## Serve the React frontend (expects `make run` on port 8000)
+	cd frontend && npm run dev -- --port 5173
+
+frontend-build: ## Type-check and build the React frontend
+	cd frontend && npm run build
 
 test: ## Run the test suite
 	$(PY) -m pytest -q
@@ -71,4 +84,4 @@ fmt: ## Auto-format / fix with ruff
 
 clean: ## Remove caches and generated artifacts
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
-	rm -rf .pytest_cache .ruff_cache .mypy_cache
+	rm -rf .pytest_cache .ruff_cache .mypy_cache frontend/dist
