@@ -4,7 +4,11 @@ from __future__ import annotations
 
 from carenav.agents import resolve_member_ref
 from carenav.api.members import load_member_summary, topic_label
-from carenav.api.query_analyzer import QueryAnalysis, analyze_member_query
+from carenav.api.query_analyzer import (
+    QueryAnalysis,
+    analyze_member_query,
+    resolve_condition_topic,
+)
 from carenav.api.schemas import MemberSummary
 from carenav.data import condition_topics
 from carenav.models import ModelGateway
@@ -244,7 +248,13 @@ def _answer_profile_slot(
         return _risk_answer(question, summary, hit, gateway, citation, topics)
 
     if query_type == "specific_condition":
-        asked = str(analysis.condition_topic or "that condition").strip()
+        # Resolve the asked-about condition to a canonical topic. The analyzer slot is
+        # unreliable here — it has returned None ("does hilton have cancer") or a raw,
+        # unmapped word ("tumor"); resolve_condition_topic only trusts a value that maps to
+        # a real topic, then falls back to an LLM extractor (synonyms like "sugar") and a
+        # deterministic matcher, so a missing/garbled slot never becomes a false "No".
+        resolved = resolve_condition_topic(question, analysis.condition_topic, gateway)
+        asked = resolved or "that condition"
         visible = {topic.lower(): topic for topic in summary.kb_topics}
         matched = visible.get(asked.lower())
         if matched:

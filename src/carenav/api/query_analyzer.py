@@ -82,7 +82,7 @@ def _mentions_selected_profile(question: str, summary: MemberContext) -> bool:
     return bool(first_name and first_name in low) or "my " in low or bool(words & profile_cues)
 
 
-def _mentioned_condition_topic(question: str) -> str | None:
+def mentioned_condition_topic(question: str) -> str | None:
     low = question.lower()
     for topic in condition_topics.TOPICS:
         label = _topic_label(topic)
@@ -90,6 +90,73 @@ def _mentioned_condition_topic(question: str) -> str | None:
         if any(candidate in low for candidate in candidates):
             return label
     return None
+
+
+_TOPIC_LABELS = [_topic_label(topic) for topic in condition_topics.TOPICS]
+_TOPIC_LOOKUP = {label.lower(): label for label in _TOPIC_LABELS}
+
+_EXTRACT_PROMPT = """A health-plan member asked whether a person has a particular condition.
+Map the condition they are asking about to exactly ONE label from this list, or NONE.
+
+Labels:
+{labels}
+
+Map colloquial and clinical synonyms to the closest label (e.g. "sugar" or "diabetic" ->
+Type 2 Diabetes; "tumor", "malignancy", "lung cancer" -> Cancer; "high BP" -> High Blood
+Pressure). If no label clearly fits, reply NONE.
+
+Question: {question}
+
+Reply with ONLY the exact label text, or NONE. Nothing else."""
+
+
+def llm_condition_topic(question: str, gateway: ModelGateway | None) -> str | None:
+    """LLM-extract the asked-about condition, constrained to the canonical topic labels.
+
+    Returns a label from condition_topics.TOPICS, or None. Used to recover the topic when
+    the analyzer flags a presence question but leaves condition_topic unset, and to catch
+    colloquial synonyms the substring matcher misses. Never raises — falls back to None so
+    the caller's deterministic extractor still runs.
+    """
+    if gateway is None:
+        return None
+    prompt = _EXTRACT_PROMPT.format(
+        labels="\n".join(f"- {label}" for label in _TOPIC_LABELS), question=question
+    )
+    try:
+        raw = gateway.generate(prompt, label="api.condition_extract").text.strip()
+    except Exception:
+        return None
+    return _TOPIC_LOOKUP.get(raw.strip().rstrip(".").lower())
+
+
+def canonical_topic(value: str | None) -> str | None:
+    """Map a free-text condition string to a canonical topic label, or None.
+
+    Accepts a label ("Cancer"), a slug ("type-2-diabetes"), or a slug-with-spaces, and
+    normalizes to the canonical label. Returns None for anything not in the topic set, so
+    callers can tell an unmapped raw word (e.g. "tumor") from a real topic.
+    """
+    if not value:
+        return None
+    key = value.strip().rstrip(".").lower()
+    return _TOPIC_LOOKUP.get(key) or _TOPIC_LOOKUP.get(key.replace("-", " "))
+
+
+def resolve_condition_topic(
+    question: str, analyzer_topic: str | None, gateway: ModelGateway | None
+) -> str | None:
+    """Best canonical topic for a presence question, trying each source in order.
+
+    The analyzer's slot is trusted only if it maps to a real topic — it sometimes returns a
+    raw word ("tumor") that isn't a topic label, which would otherwise defeat the fallback.
+    Falls through to the LLM extractor (synonyms) and the deterministic matcher.
+    """
+    return (
+        canonical_topic(analyzer_topic)
+        or llm_condition_topic(question, gateway)
+        or mentioned_condition_topic(question)
+    )
 
 
 def _is_condition_presence_question(question: str) -> bool:
@@ -172,7 +239,7 @@ def _guardrail_analysis(
     if profile_mentioned and any(term in low for term in ["medication", "medicine", "meds"]):
         return QueryAnalysis(scope="profile", kind="medications", needs_profile=True)
 
-    condition_topic = _mentioned_condition_topic(question)
+    condition_topic = mentioned_condition_topic(question)
     if (
         include_soft
         and profile_mentioned
@@ -312,4 +379,24 @@ JSON:"""
     educational_guardrail = _guardrail_analysis(question, summary)
     if educational_guardrail and educational_guardrail.scope == "general":
         return educational_guardrail
+
+    # Presence questions ("does hilton have high sugar") that the LLM mislabeled as a
+    # generic conditions/other listing are re-routed to specific_condition when a topic
+    # resolves — including colloquial synonyms the analyzer's own slot missed. Definitions
+    # and benefit/coverage questions are already handled above, so they can't reach here.
+    if (
+        analysis.scope != "general"
+        and analysis.kind not in {"specific_condition", "risk"}
+        and _is_condition_presence_question(question)
+        and _mentions_selected_profile(question, summary)
+        and not _is_educational_question(question)
+    ):
+        resolved = resolve_condition_topic(question, analysis.condition_topic, gateway)
+        if resolved:
+            return QueryAnalysis(
+                scope="profile",
+                kind="specific_condition",
+                condition_topic=resolved,
+                needs_profile=True,
+            )
     return analysis
