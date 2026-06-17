@@ -1,5 +1,5 @@
 import React from 'react';
-import { ExternalLink, FileText, Cpu, User } from 'lucide-react';
+import { ExternalLink, FileText, Cpu, User, X } from 'lucide-react';
 import type { Citation, Member, Message, TurnResponse } from './types';
 import { detailFor } from './api';
 import { groupCitations, sourceKind, sourceLabel } from './citations';
@@ -11,6 +11,9 @@ type Props = {
   messages: Message[];
   activeTab: Tab;
   onTabChange: (t: Tab) => void;
+  /** Render as a slide-up bottom sheet over the chat (phone layout). */
+  mobile?: boolean;
+  onClose?: () => void;
 };
 
 function Label({ children }: { children: React.ReactNode }) {
@@ -257,7 +260,7 @@ function SystemTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
   );
 }
 
-export function RightPanel({ member, messages, activeTab, onTabChange }: Props) {
+export function RightPanel({ member, messages, activeTab, onTabChange, mobile = false, onClose }: Props) {
   const lastAssistantMsg = [...messages].reverse().find(m => m.role === 'assistant' && !m.loading && !m.error);
   const lastResponse = lastAssistantMsg?.response ?? null;
   const tabs: { id: Tab; label: string }[] = [
@@ -266,18 +269,32 @@ export function RightPanel({ member, messages, activeTab, onTabChange }: Props) 
     { id: 'system', label: 'System' },
   ];
 
-  return (
-    <aside style={{ width: 282, flexShrink: 0, borderLeft: '1px solid rgba(14,14,9,0.1)', background: '#DDDAC9', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', borderBottom: '1px solid rgba(14,14,9,0.1)' }}>
+  const asideStyle: React.CSSProperties = mobile
+    ? {
+        width: '100%', maxHeight: '82%',
+        borderTop: '1px solid rgba(14,14,9,0.12)',
+        borderTopLeftRadius: 14, borderTopRightRadius: 14,
+        background: '#DDDAC9', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        boxShadow: '0 -8px 30px rgba(14,14,9,0.18)',
+        paddingBottom: 'env(safe-area-inset-bottom)',
+      }
+    : {
+        width: 282, flexShrink: 0, borderLeft: '1px solid rgba(14,14,9,0.1)',
+        background: '#DDDAC9', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+      };
+
+  const aside = (
+    <aside style={asideStyle}>
+      <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid rgba(14,14,9,0.1)' }}>
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             style={{
-              flex: 1, padding: '10px 6px', background: 'none', border: 'none',
+              flex: 1, padding: mobile ? '13px 6px' : '10px 6px', background: 'none', border: 'none',
               borderBottom: activeTab === tab.id ? '1.5px solid rgba(78,122,78,0.7)' : '1.5px solid transparent',
               color: activeTab === tab.id ? '#0E0E09' : 'rgba(14,14,9,0.35)',
-              fontSize: 11, fontFamily: 'var(--font-mono)', fontWeight: activeTab === tab.id ? 500 : 400,
+              fontSize: mobile ? 13 : 11, fontFamily: 'var(--font-mono)', fontWeight: activeTab === tab.id ? 500 : 400,
               cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1, letterSpacing: '0.02em',
             }}
             onMouseEnter={e => { if (activeTab !== tab.id) e.currentTarget.style.color = 'rgba(14,14,9,0.6)'; }}
@@ -286,10 +303,40 @@ export function RightPanel({ member, messages, activeTab, onTabChange }: Props) 
             {tab.label}
           </button>
         ))}
+        {mobile && (
+          <button
+            onClick={onClose}
+            aria-label="Close panel"
+            style={{
+              width: 46, flexShrink: 0, background: 'none', border: 'none',
+              borderLeft: '1px solid rgba(14,14,9,0.08)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            }}
+          >
+            <X size={16} color="rgba(14,14,9,0.45)" />
+          </button>
+        )}
       </div>
       {activeTab === 'member' && <MemberTab member={member} />}
       {activeTab === 'evidence' && <EvidenceTab lastResponse={lastResponse} />}
       {activeTab === 'system' && <SystemTab lastResponse={lastResponse} />}
     </aside>
+  );
+
+  if (!mobile) return aside;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{
+        position: 'fixed', inset: 0, zIndex: 50,
+        background: 'rgba(14,14,9,0.4)',
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+      }}
+    >
+      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        {aside}
+      </div>
+    </div>
   );
 }

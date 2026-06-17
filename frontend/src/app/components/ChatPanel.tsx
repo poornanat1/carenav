@@ -502,6 +502,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   return (
     <div
+      className="chat-scroll"
       style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', background: '#E6E2D4', scrollbarWidth: 'none' }}
     >
       {messages.map(msg => {

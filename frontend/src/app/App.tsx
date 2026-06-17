@@ -5,6 +5,7 @@ import { ChatPanel } from './components/ChatPanel';
 import { RightPanel } from './components/RightPanel';
 import { Composer } from './components/Composer';
 import { callTurn, healthCheck, listMembers, listSuggestedQuestions } from './components/api';
+import { useIsMobile } from './components/useMediaQuery';
 import type { Member, Message, SuggestedQuestion } from './components/types';
 
 type RightTab = 'member' | 'evidence' | 'system';
@@ -23,6 +24,8 @@ export default function App() {
   const [loading, setLoading] = useState(false);
   const [rightTab, setRightTab] = useState<RightTab>('member');
   const [pendingQuestion, setPendingQuestion] = useState('');
+  const [panelOpen, setPanelOpen] = useState(false);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +46,7 @@ export default function App() {
     setMessages([]);
     setSuggestions([]);
     setRightTab('member');
+    setPanelOpen(false);
     listSuggestedQuestions(m).then(setSuggestions).catch(() => setSuggestions([]));
   }
 
@@ -115,16 +119,22 @@ export default function App() {
       style={{
         display: 'flex',
         flexDirection: 'column',
-        height: '100vh',
-        width: '100vw',
+        height: '100%',
+        width: '100%',
         overflow: 'hidden',
         fontFamily: 'var(--font-sans)',
         background: '#E6E2D4',
       }}
     >
-      <TopBar onReset={handleReset} hasConversation={messages.length > 0} apiOnline={apiOnline} />
+      <TopBar
+        onReset={handleReset}
+        hasConversation={messages.length > 0}
+        apiOnline={apiOnline}
+        isMobile={isMobile}
+        onOpenPanel={() => setPanelOpen(true)}
+      />
 
-      <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
+      <div style={{ display: 'flex', flex: 1, overflow: 'hidden', minHeight: 0 }}>
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden', minWidth: 0 }}>
           <MemberSelector members={members} selected={member} onSelect={handleMemberSelect} />
           <ChatPanel
@@ -143,13 +153,26 @@ export default function App() {
           />
         </div>
 
+        {!isMobile && (
+          <RightPanel
+            member={member}
+            messages={messages}
+            activeTab={rightTab}
+            onTabChange={setRightTab}
+          />
+        )}
+      </div>
+
+      {isMobile && panelOpen && (
         <RightPanel
           member={member}
           messages={messages}
           activeTab={rightTab}
           onTabChange={setRightTab}
+          mobile
+          onClose={() => setPanelOpen(false)}
         />
-      </div>
+      )}
     </div>
   );
 }

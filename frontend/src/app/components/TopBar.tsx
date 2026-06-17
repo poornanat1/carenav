@@ -1,12 +1,14 @@
-import { Activity, RotateCcw } from 'lucide-react';
+import { Activity, RotateCcw, PanelRight } from 'lucide-react';
 
 type Props = {
   onReset: () => void;
   hasConversation: boolean;
   apiOnline: boolean;
+  isMobile?: boolean;
+  onOpenPanel?: () => void;
 };
 
-export function TopBar({ onReset, hasConversation, apiOnline }: Props) {
+export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, onOpenPanel }: Props) {
   return (
     <header
       style={{
@@ -16,7 +18,7 @@ export function TopBar({ onReset, hasConversation, apiOnline }: Props) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '0 22px',
+        padding: isMobile ? '0 14px' : '0 22px',
         flexShrink: 0,
       }}
     >
@@ -47,18 +49,22 @@ export function TopBar({ onReset, hasConversation, apiOnline }: Props) {
         </span>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
-        <span
-          style={{
-            color: 'rgba(230,226,212,0.35)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 11,
-          }}
-        >
-          Mistral · RAG enabled
-        </span>
+      <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 10 : 18 }}>
+        {!isMobile && (
+          <>
+            <span
+              style={{
+                color: 'rgba(230,226,212,0.35)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+              }}
+            >
+              Mistral · RAG enabled
+            </span>
 
-        <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
+            <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
+          </>
+        )}
 
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <div
@@ -70,30 +76,57 @@ export function TopBar({ onReset, hasConversation, apiOnline }: Props) {
               boxShadow: apiOnline ? '0 0 6px rgba(78,122,78,0.7)' : '0 0 6px rgba(160,48,48,0.45)',
             }}
           />
-          <span
-            style={{
-              color: 'rgba(230,226,212,0.35)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: 11,
-            }}
-          >
-            {apiOnline ? 'API connected' : 'API offline'}
-          </span>
+          {!isMobile && (
+            <span
+              style={{
+                color: 'rgba(230,226,212,0.35)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 11,
+              }}
+            >
+              {apiOnline ? 'API connected' : 'API offline'}
+            </span>
+          )}
         </div>
 
-        <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
+        {!isMobile && (
+          <>
+            <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
 
-        <span
-          style={{
-            color: 'rgba(230,226,212,0.18)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: 9,
-            letterSpacing: '0.08em',
-            textTransform: 'uppercase',
-          }}
-        >
-          synthetic demo
-        </span>
+            <span
+              style={{
+                color: 'rgba(230,226,212,0.18)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 9,
+                letterSpacing: '0.08em',
+                textTransform: 'uppercase',
+              }}
+            >
+              synthetic demo
+            </span>
+          </>
+        )}
+
+        {isMobile && (
+          <button
+            onClick={onOpenPanel}
+            aria-label="Open details panel"
+            style={{
+              background: 'transparent',
+              border: '1px solid rgba(230,226,212,0.15)',
+              borderRadius: 5,
+              color: 'rgba(230,226,212,0.6)',
+              padding: '5px 9px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 5,
+            }}
+          >
+            <PanelRight size={13} />
+            <span style={{ fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>Details</span>
+          </button>
+        )}
 
         {hasConversation && (
           <button
