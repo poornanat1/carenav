@@ -1,0 +1,77 @@
+# Render blueprint for CareNav: managed Postgres (pgvector) + Dockerized API + static frontend.
+#
+# Deploy: push this to GitHub, then in the Render dashboard choose
+# "New +" -> "Blueprint" and point it at this repo. Render provisions all three
+# resources below. Fill the `sync: false` secrets when prompted (they are never
+# committed). After the DB is live, seed it once with a pg_dump restore from your
+# local DB (see deploy notes), since the data_artifacts/ corpus is not in the repo.
+
+databases:
+  - name: carenav-db
+    plan: basic-256mb # smallest paid pgvector-capable plan; bump if the corpus needs more
+    postgresMajorVersion: "16"
+
+services:
+  # --- API (FastAPI, Docker) ---
+  - type: web
+    name: carenav-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      - key: ENV
+        value: prod
+      # Render injects the connection string from the managed DB. The app expects a
+      # SQLAlchemy psycopg URL; Render's value starts with postgresql:// which
+      # psycopg accepts, but we force the +psycopg driver below via DATABASE_URL.
+      - key: DATABASE_URL
+        fromDatabase:
+          name: carenav-db
+          property: connectionString
+      # Allowed CORS origin = the deployed frontend URL (filled after first deploy,
+      # or set to the static site's onrender.com URL).
+      - key: CORS_ORIGINS
+        sync: false
+      # --- model / embedding providers (secrets — enter in dashboard) ---
+      - key: MODEL_PROVIDER
+        value: mistral
+      - key: MODEL_SMALL
+        value: mistral-small-latest
+      - key: MODEL_FRONTIER
+        value: mistral-large-latest
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: FIREWORKS_API_KEY
+        sync: false
+      - key: FIREWORKS_ACCOUNT_ID
+        sync: false
+      - key: FIREWORKS_API_BASE
+        value: https://api.fireworks.ai
+      - key: PII_MODEL
+        sync: false
+      - key: EMBEDDING_MODEL
+        value: mistral-embed
+      - key: EMBEDDING_DIM
+        value: "1024"
+      - key: STUB_GENERATION
+        value: "false"
+
+  # --- frontend (static React build) ---
+  - type: web
+    name: carenav-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: ./frontend/dist
+    autoDeploy: true
+    envVars:
+      # Baked into the build. Set to the carenav-api service URL
+      # (e.g. https://carenav-api.onrender.com).
+      - key: VITE_API_BASE_URL
+        sync: false
+    routes:
+      # SPA fallback so client-side navigation works.
+      - type: rewrite
+        source: /*
+        destination: /index.html

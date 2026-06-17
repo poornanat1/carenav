@@ -20,10 +20,23 @@ _engine: Engine | None = None
 _SessionFactory: sessionmaker[Session] | None = None
 
 
+def _normalize_url(url: str) -> str:
+    """Coerce a bare ``postgresql://`` URL (as managed hosts like Render emit) to the
+    ``postgresql+psycopg://`` driver the app uses. URLs that already name a driver are
+    left untouched."""
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url[len("postgresql://") :]
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url[len("postgres://") :]
+    return url
+
+
 def get_engine() -> Engine:
     global _engine
     if _engine is None:
-        _engine = create_engine(settings.database_url, pool_pre_ping=True, future=True)
+        _engine = create_engine(
+            _normalize_url(settings.database_url), pool_pre_ping=True, future=True
+        )
     return _engine
 
 
