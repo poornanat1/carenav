@@ -8,6 +8,9 @@ from carenav.orchestrator import run_turn
 from carenav.orchestrator.decompose import _COMPARATIVE, decompose
 from carenav.orchestrator.router import _fast_path, triage
 from carenav.orchestrator.state import ConfidenceBreakdown
+from carenav.orchestrator.verify import verify_citations
+from carenav.rag.agent import Citation, RagAnswer
+from carenav.rag.retrieval import Hit
 from tests.conftest import requires_db, requires_generation
 
 # --- safety triage (the missed-escalation hard gate) --------------------------------------
@@ -102,6 +105,37 @@ def test_grounded_high_retrieval_clears_default_bar():
 def test_ungrounded_never_clears_bar():
     c = ConfidenceBreakdown(intent_conf=0.9, retrieval_conf=0.7, tool_conf=1.0, self_eval=0.0)
     assert c.weighted_sum() < settings.tau_low
+
+
+def test_verify_allows_named_term_in_cited_excerpt():
+    hit = Hit(
+        chunk_id="mplus-high-cholesterol::000",
+        doc_id="mplus-high-cholesterol",
+        source_type="consumer_health",
+        title="High Cholesterol",
+        source_url="",
+        last_reviewed=None,
+        section_path="High Cholesterol > What is high cholesterol",
+        text=(
+            "Hypertriglyceridemia means the level of triglycerides, a type of fat "
+            "in the blood, is too high."
+        ),
+        score=1.0,
+    )
+    answer = RagAnswer(
+        question="what is Hypertriglyceridemia",
+        answer="Hypertriglyceridemia means triglycerides are too high.",
+        citations=[Citation(hit.chunk_id, hit.title, hit.source_url, hit.section_path)],
+        grounded=True,
+        escalated=False,
+        escalation_reason=None,
+        retrieval_conf=1.0,
+        attempts=1,
+        cost_usd=0.0,
+        hits=[hit],
+    )
+
+    assert verify_citations("what is Hypertriglyceridemia", [answer], ModelGateway())
 
 
 # --- tool loop: plan → tool_exec → reflect ---------------------------------------------
