@@ -61,23 +61,22 @@ Anything off the hot path goes through an async queue (see [12-scalability.md](1
 carenav/
 ├── README.md                      # what, why, and how to run
 ├── docs/                          # these documents
-├── carenav/
-│   ├── orchestrator/              # typed node pipeline: route/plan/tool_exec/reflect (§4.1)
-│   ├── agents/                    # specialist tools (§4.2)
-│   ├── redaction/                 # PII/PHI layer (§4.3)
-│   ├── models/                    # ModelGateway, tiering, confidence (§4.4)
-│   ├── rag/                       # chunking, embeddings, retrieval, grounding (§4.5)
-│   ├── data/                      # ingest scripts: synthea, nppes, kb, benefits (§5)
-│   ├── telemetry/                 # tracing + cost accounting (§8)
+├── src/carenav/
+│   ├── orchestrator/              # typed node pipeline: route/plan/tool_exec/reflect (03)
+│   ├── agents/                    # specialist tools (04)
+│   ├── redaction/                 # PII/PHI layer (05)
+│   ├── models/                    # ModelGateway, tiering, confidence (06)
+│   ├── rag/                       # chunking, embeddings, retrieval, grounding (07)
+│   ├── data/                      # ingest: synthea, nppes, kb, benefits (08)
+│   ├── telemetry/                 # tracing + cost accounting (11)
 │   └── api/                       # FastAPI serving
-├── eval/
-│   ├── cujs/                      # golden fixtures (§6.1)
-│   ├── metrics/                   # metric implementations (§6.2)
-│   └── run.py                     # harness + report (§6.3)
+├── eval/                          # golden fixtures (cujs/) + metrics/ (09)
+├── scripts/                       # data fetch + condition-index generation
 ├── frontend/                      # React chat view
-├── tests/
-├── docker-compose.yml
-└── Makefile                       # `make data`, `make eval`, `make run`
+├── tests/                         # pytest suite
+├── Dockerfile · docker-compose.yml · railway.json
+├── pyproject.toml · requirements.txt
+└── Makefile                       # `make data`, `make run`, `make test`
 ```
 
 ## Key architectural invariants
