@@ -31,6 +31,36 @@ def test_medication_answer_is_grounded_and_cited():
         assert f"[CHUNK:{c.chunk_id}]" in a.answer
 
 
+def test_drug_class_question_grounds_to_specific_drug():
+    """A drug-CLASS question ("side effects of statins") must surface the specific
+    drug-label chunk (atorvastatin) and ground, not escalate. Regression for the case
+    where class filler-words diluted retrieval into wrong-class docs and the turn
+    failed groundedness. The LLM query rewrite expands the class to a representative
+    drug before retrieval."""
+    from carenav.rag.agent import answer_question
+
+    a = answer_question(
+        "What are common side effects of statin medications?", intent="medication"
+    )
+    assert a.grounded and not a.escalated
+    assert a.citations
+    # The representative statin in the corpus is atorvastatin.
+    assert any("atorvastatin" in c.chunk_id for c in a.citations)
+
+
+def test_query_rewrite_expands_class_and_fails_open():
+    from carenav.models import ModelGateway
+    from carenav.rag.query_rewrite import rewrite_for_retrieval
+
+    # No gateway -> fail open, return the question unchanged.
+    q = "side effects of statins"
+    assert rewrite_for_retrieval(q, gateway=None) == q
+    # With a gateway, the rewrite mentions a representative statin so retrieval can match.
+    out = rewrite_for_retrieval(q, gateway=ModelGateway())
+    assert out  # never empty
+    assert "atorvastatin" in out.lower() or "statin" in out.lower()
+
+
 def test_cost_is_captured():
     from carenav.models import ModelGateway
     from carenav.rag.agent import answer_question

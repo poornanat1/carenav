@@ -19,7 +19,7 @@ from dataclasses import dataclass, field
 
 from carenav.config import settings
 from carenav.models import ModelGateway
-from carenav.rag import groundedness, prompts, retrieval
+from carenav.rag import groundedness, prompts, query_rewrite, retrieval
 from carenav.rag.retrieval import Hit
 
 
@@ -75,7 +75,12 @@ def answer_question(
     gw = gateway or ModelGateway()
     model = model or settings.model_small
 
-    hits = retrieval.retrieve(question, intent=intent, k=k, gateway=gw)
+    # Retrieve on an LLM-tuned query (filler dropped, drug classes expanded to a
+    # representative drug) so class questions like "side effects of statins" surface the
+    # specific drug-label chunks instead of unrelated medication-class docs. Generation
+    # and grounding still use the member's original question — only retrieval is rewritten.
+    retrieval_query = query_rewrite.rewrite_for_retrieval(question, gateway=gw)
+    hits = retrieval.retrieve(retrieval_query, intent=intent, k=k, gateway=gw)
     conf = retrieval.retrieval_conf(hits)
 
     if not hits:
