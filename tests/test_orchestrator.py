@@ -5,6 +5,7 @@ decompose split needs real generation and skips without quota."""
 from sqlalchemy import select
 
 from carenav.agents.contracts import BenefitLookupOutput
+from carenav.api.members import load_member_summary
 from carenav.api.profile_turn import profile_turn
 from carenav.config import settings
 from carenav.data.db import session_scope
@@ -123,6 +124,23 @@ def test_provider_detail_name_ignores_conditions_and_account():
     assert provider_detail_name("who is Dr. Alan Rosenberg?") == "Alan Rosenberg"
     assert provider_detail_name("tell me about my deductible") is None
     assert provider_detail_name("tell me about heart disease") is None
+
+
+@requires_db
+def test_selected_member_identity_question_answers_profile(monkeypatch):
+    monkeypatch.setattr(settings, "stub_generation", True)
+    with session_scope() as session:
+        member_id = session.scalar(select(Member.member_id).limit(1))
+
+    summary = load_member_summary(member_id)
+    first_name = summary.name.split()[0].rstrip(".")
+    r = profile_turn(f"who is {first_name}", None, member_id, ModelGateway())
+
+    assert r is not None
+    assert r.intent == "member_profile"
+    assert not r.escalated
+    assert r.grounded
+    assert first_name in r.answer
 
 
 # --- decompose ------------------------------------------------------------------------------

@@ -2,7 +2,6 @@
 doc_id: sbc-carenav-bronze
 source_type: sbc
 title: CareNav Bronze — Summary of Benefits and Coverage
-source_url: https://www.cms.gov/marketplace/resources/regulations-guidance/summary-benefits-coverage
 last_reviewed: 2025-01-01
 ---
 

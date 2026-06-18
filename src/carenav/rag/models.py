@@ -38,7 +38,8 @@ class KBDoc(Base):
     doc_id: Mapped[str] = mapped_column(String, primary_key=True)
     source_type: Mapped[str] = mapped_column(String, nullable=False)  # one of SOURCE_TYPES
     title: Mapped[str] = mapped_column(String, nullable=False)
-    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    # Null for internal/synthetic docs that have no external page (rendered in-app).
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     last_reviewed: Mapped[str | None] = mapped_column(String, nullable=True)
 
     chunks: Mapped[list[KBChunk]] = relationship(
@@ -54,7 +55,7 @@ class KBChunk(Base):
     # Denormalized from the doc so retrieval can filter/cite without a join.
     source_type: Mapped[str] = mapped_column(String, nullable=False, index=True)
     title: Mapped[str] = mapped_column(String, nullable=False)
-    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     last_reviewed: Mapped[str | None] = mapped_column(String, nullable=True)
     # Heading path of the section this chunk came from, e.g. "Uses > How to take".
     section_path: Mapped[str | None] = mapped_column(String, nullable=True)

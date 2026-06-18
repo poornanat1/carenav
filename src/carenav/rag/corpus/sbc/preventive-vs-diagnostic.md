@@ -2,7 +2,6 @@
 doc_id: cms-preventive-vs-diagnostic
 source_type: sbc
 title: Preventive vs. Diagnostic Care — Coverage Basics
-source_url: https://www.cms.gov/marketplace/resources/regulations-guidance/summary-benefits-coverage
 last_reviewed: 2025-01-01
 ---
 

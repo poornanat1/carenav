@@ -83,6 +83,15 @@ def _mentions_selected_profile(question: str, summary: MemberContext) -> bool:
     return bool(first_name and first_name in low) or "my " in low or bool(words & profile_cues)
 
 
+def _is_selected_member_identity_question(question: str, summary: MemberContext) -> bool:
+    low = question.lower().strip()
+    first_name = summary.name.split()[0].rstrip(".").lower() if summary.name else ""
+    if not re.match(r"^(who('?s| is)|tell me about|summarize)\b", low):
+        return False
+    words = {word.strip(".,?!:;()[]{}'\"") for word in low.split()}
+    return bool(first_name and first_name in words) or bool(words & {"she", "he", "they"})
+
+
 def mentioned_condition_topic(question: str) -> str | None:
     low = question.lower()
     for topic in condition_topics.TOPICS:
@@ -259,6 +268,9 @@ def _guardrail_analysis(
             kind="provider_search",
             needs_profile=True,
         )
+
+    if _is_selected_member_identity_question(question, summary):
+        return QueryAnalysis(scope="profile", kind="summary", needs_profile=True)
 
     if provider_detail_name(question):
         return QueryAnalysis(

@@ -12,7 +12,9 @@ from pathlib import Path
 
 CORPUS_DIR = Path(__file__).parent / "corpus"
 
-_REQUIRED = ("doc_id", "source_type", "title", "source_url")
+# source_url is optional: internal/synthetic docs (the CareNav SBC plans and coverage
+# explainers) have no external page to cite — the UI renders their markdown in-app instead.
+_REQUIRED = ("doc_id", "source_type", "title")
 
 
 @dataclass(frozen=True)
@@ -20,7 +22,7 @@ class SourceDoc:
     doc_id: str
     source_type: str
     title: str
-    source_url: str
+    source_url: str | None
     last_reviewed: str | None
     body: str  # Markdown body (everything after the frontmatter)
 
@@ -54,7 +56,7 @@ def load_doc(path: Path) -> SourceDoc:
         doc_id=meta["doc_id"],
         source_type=meta["source_type"],
         title=meta["title"],
-        source_url=meta["source_url"],
+        source_url=meta.get("source_url") or None,
         last_reviewed=meta.get("last_reviewed") or None,
         body=body,
     )

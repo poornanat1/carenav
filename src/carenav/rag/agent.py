@@ -27,7 +27,7 @@ from carenav.rag.retrieval import Hit
 class Citation:
     chunk_id: str
     title: str
-    source_url: str
+    source_url: str | None
     section_path: str | None
 
 

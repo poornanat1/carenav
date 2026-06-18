@@ -41,7 +41,7 @@ class Hit:
     doc_id: str
     source_type: str
     title: str
-    source_url: str
+    source_url: str | None
     last_reviewed: str | None
     section_path: str | None
     text: str

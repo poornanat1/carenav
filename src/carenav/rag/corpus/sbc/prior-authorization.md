@@ -2,7 +2,6 @@
 doc_id: cms-prior-authorization
 source_type: sbc
 title: Prior Authorization — Coverage Basics
-source_url: https://www.cms.gov/marketplace/resources/regulations-guidance/summary-benefits-coverage
 last_reviewed: 2025-01-01
 ---
 

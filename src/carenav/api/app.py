@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import re
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from carenav.agents import create_demo_member_ref
+from carenav.api.kb import kb_doc
 from carenav.api.members import (
     list_member_summaries,
     provider_recommendations_for_member,
@@ -57,6 +58,14 @@ async def suggested_questions(member_id: str) -> list[SuggestedQuestion]:
 @app.get("/members/{member_id}/providers")
 async def member_providers(member_id: str) -> list[dict]:
     return await run_in_threadpool(provider_recommendations_for_member, member_id)
+
+
+@app.get("/kb/{doc_id}")
+async def kb_document(doc_id: str) -> dict:
+    doc = await run_in_threadpool(kb_doc, doc_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="Unknown KB document")
+    return doc
 
 
 def _member_ref(req: TurnRequest) -> str | None:
