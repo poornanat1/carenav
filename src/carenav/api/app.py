@@ -22,6 +22,7 @@ from carenav.api.schemas import (
 )
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
+from carenav.orchestrator.contextualize import Turn, contextualize_question
 from carenav.orchestrator.state import TurnResult
 
 app = FastAPI(title="CareNav", version="0.1.0")
@@ -105,14 +106,22 @@ def _serialize_turn(result: TurnResult) -> TurnResponse:
 @app.post("/turn", response_model=TurnResponse)
 async def turn(req: TurnRequest) -> TurnResponse:
     gateway = ModelGateway()
+
+    # Resolve a follow-up into a standalone question using the prior conversation, once,
+    # before dispatching to either the profile or general path. Fails open to req.question.
+    history = [Turn(role=t.role, content=t.content) for t in req.history]
+    question = await run_in_threadpool(
+        contextualize_question, req.question, history, gateway
+    )
+
     profile_result = (
         await run_in_threadpool(
-            profile_turn, req.question, req.member_ref, req.member_id, gateway
+            profile_turn, question, req.member_ref, req.member_id, gateway
         )
         if req.member_ref or req.member_id
         else None
     )
     result = profile_result or await run_in_threadpool(
-        run_turn, req.question, _member_ref(req), gateway
+        run_turn, question, _member_ref(req), gateway
     )
     return _serialize_turn(result)

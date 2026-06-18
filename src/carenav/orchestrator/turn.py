@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from carenav.config import settings
 from carenav.models import ModelGateway
+from carenav.orchestrator import contextualize as _contextualize
 from carenav.orchestrator import decompose as _decompose
 from carenav.orchestrator import router as _router
 from carenav.orchestrator import tools as _tools
@@ -106,15 +107,27 @@ def _confidence(
 
 
 def run_turn(
-    question: str, member_ref: str | None = None, gateway: ModelGateway | None = None
+    question: str,
+    member_ref: str | None = None,
+    gateway: ModelGateway | None = None,
+    history: list[_contextualize.Turn] | None = None,
 ) -> TurnResult:
     """Run one member turn through the orchestrator. Never guesses: escalates instead.
 
     `member_ref` is the opaque session reference; the agent layer resolves it to a real
     member_id (carenav.agents.session). Turns needing member context but lacking a ref
     escalate rather than guess.
+
+    `history` is the prior conversation (oldest first). When present, a follow-up question
+    is first rewritten to stand on its own ("what are the side effects?" after "what is
+    albuterol?" → "what are albuterol's side effects?") so routing and retrieval have a
+    complete subject. Fails open to the original question.
     """
     gw = gateway or ModelGateway()
+
+    # --- contextualize: resolve a follow-up into a standalone question using prior turns,
+    # BEFORE redaction/routing, so every downstream node sees a self-contained subject.
+    question = _contextualize.contextualize_question(question, history, gw)
 
     # --- redact (docs/05): tokenize PII in the user's text BEFORE any model call ---
     # Everything downstream (router, plan, decompose, generate, verify, handoff) operates on

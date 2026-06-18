@@ -62,10 +62,13 @@ export function detailFor(member: Member): MemberDetail | null {
   return MEMBER_DETAILS[member.id] ?? null;
 }
 
+export type HistoryTurn = { role: 'user' | 'assistant'; content: string };
+
 export async function callTurn(
   question: string,
   memberRef?: string,
   memberId?: string,
+  history: HistoryTurn[] = [],
 ): Promise<TurnResponse> {
   return request<TurnResponse>('/turn', {
     method: 'POST',
@@ -73,6 +76,7 @@ export async function callTurn(
       question,
       member_ref: memberRef || null,
       member_id: memberId || null,
+      history,
     }),
   });
 }

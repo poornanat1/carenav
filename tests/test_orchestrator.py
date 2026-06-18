@@ -150,6 +150,53 @@ def test_member_context_required_without_ref(monkeypatch):
     assert r.escalated and r.handoff.reason == "member_context_required"
 
 
+def test_contextualize_fails_open_without_history_or_gateway():
+    from carenav.orchestrator.contextualize import Turn, contextualize_question
+
+    q = "what are the side effects?"
+    # No history -> unchanged. No gateway -> unchanged. Empty-content history -> unchanged.
+    assert contextualize_question(q, None, ModelGateway()) == q
+    assert contextualize_question(q, [Turn("user", "what is albuterol")], None) == q
+    assert contextualize_question(q, [Turn("user", "   ")], ModelGateway()) == q
+
+
+def test_contextualize_uses_stubbed_rewrite():
+    from carenav.orchestrator.contextualize import Turn, contextualize_question
+
+    class FakeGateway:
+        def generate(self, *_args, **_kwargs):
+            class Response:
+                text = "What are the side effects of albuterol?"
+
+            return Response()
+
+    history = [
+        Turn("user", "what is albuterol"),
+        Turn("assistant", "Albuterol is a bronchodilator for asthma and COPD."),
+    ]
+    out = contextualize_question("what are the side effects?", history, FakeGateway())
+    assert out == "What are the side effects of albuterol?"
+
+
+@requires_db
+@requires_generation
+def test_followup_resolves_subject_from_history():
+    """A bare follow-up ("what are the side effects?") after an albuterol question must
+    answer about albuterol, not an unrelated drug class — the multi-turn regression."""
+    from carenav.orchestrator.contextualize import Turn, contextualize_question
+
+    gw = ModelGateway()
+    history = [
+        Turn("user", "what is albuterol"),
+        Turn("assistant", "Albuterol is a quick-relief bronchodilator for asthma and COPD."),
+    ]
+    standalone = contextualize_question("what are the side effects?", history, gw)
+    assert "albuterol" in standalone.lower()
+    r = run_turn(standalone, gateway=gw)
+    assert r.grounded and not r.escalated
+    assert any("albuterol" in c.chunk_id for c in r.citations)
+
+
 def test_llm_service_category_maps_unusual_test_to_lab_panel():
     class FakeGateway:
         def generate(self, *_args, **_kwargs):

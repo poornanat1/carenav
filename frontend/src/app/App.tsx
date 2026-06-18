@@ -74,11 +74,22 @@ export default function App() {
         loading: true,
       };
 
+      // Build conversation history (oldest first) from completed turns so a follow-up
+      // like "what are the side effects?" resolves to its subject. Cap to recent turns.
+      const history = messages
+        .filter(m => !m.loading && !m.error)
+        .map(m => ({
+          role: m.role,
+          content: m.role === 'assistant' ? m.response?.answer ?? m.content : m.content,
+        }))
+        .filter(h => h.content)
+        .slice(-6) as { role: 'user' | 'assistant'; content: string }[];
+
       setMessages(prev => [...prev, userMsg, loadingMsg]);
       setLoading(true);
 
       try {
-        const response = await callTurn(question, member.member_ref, member.id);
+        const response = await callTurn(question, member.member_ref, member.id, history);
         setMessages(prev =>
           prev.map(m =>
             m.id === loadingId
@@ -107,7 +118,7 @@ export default function App() {
         setLoading(false);
       }
     },
-    [member, loading]
+    [member, loading, messages]
   );
 
   function handleSuggestedClick(sq: SuggestedQuestion) {

@@ -5,10 +5,18 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
+class HistoryTurn(BaseModel):
+    role: str  # "user" | "assistant"
+    content: str
+
+
 class TurnRequest(BaseModel):
     question: str = Field(min_length=1)
     member_ref: str | None = None
     member_id: str | None = None
+    # Prior conversation (oldest first) so a follow-up can be resolved to a standalone
+    # question. Optional; absent/empty keeps the stateless single-turn behavior.
+    history: list[HistoryTurn] = Field(default_factory=list)
 
 
 class CitationOut(BaseModel):
