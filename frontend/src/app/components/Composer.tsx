@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Send } from 'lucide-react';
+import { Send, ArrowUp } from 'lucide-react';
 import type { Member, SuggestedQuestion } from './types';
 
 const INTENT_STYLE: Record<string, { border: string; bg: string; text: string }> = {
@@ -58,6 +58,22 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
 
   return (
     <div style={{ borderTop: '1px solid rgba(14,14,9,0.1)', background: '#DDDAC9', flexShrink: 0 }}>
+      {!member && (
+        <div
+          style={{
+            display: 'flex', alignItems: 'center', gap: 8,
+            padding: '10px 14px',
+            borderBottom: '1px solid rgba(78,122,78,0.18)',
+            background: 'rgba(78,122,78,0.06)',
+          }}
+        >
+          <ArrowUp size={14} color="#4E7A4E" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: '#3A6B3A', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.4 }}>
+            Select a member above to start asking about their coverage, claims, and care.
+          </span>
+        </div>
+      )}
+
       {member && suggestions.length > 0 && (
         <div style={{ padding: '9px 14px 0', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
           {suggestions.map((sq, i) => {

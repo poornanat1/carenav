@@ -19,6 +19,19 @@ const INTENT_STYLE: Record<string, { border: string; bg: string; text: string }>
   safety:     { border: 'rgba(160,50,50,0.4)',   bg: 'rgba(160,50,50,0.06)',  text: '#A03030' },
 };
 
+// Human-readable copy for the orchestrator's escalation reason codes. Falls back to
+// a de-snake-cased version of the raw code for any reason not listed here.
+const HANDOFF_REASON_COPY: Record<string, string> = {
+  member_context_required: 'This question is about a specific member. Select a member above, then ask again.',
+  emergent_safety: 'This looks like a medical emergency. CareNav cannot give emergency advice — call 911 or your local emergency number now.',
+  low_confidence: 'CareNav was not confident enough in an answer to give one safely. A care advocate can follow up.',
+  out_of_scope: 'This is outside what CareNav can answer. CareNav covers care navigation, benefits, and selected member profile questions.',
+};
+
+function handoffReasonText(reason: string): string {
+  return HANDOFF_REASON_COPY[reason] ?? reason.replace(/_/g, ' ');
+}
+
 function LoadingDots() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 0' }}>
@@ -331,7 +344,7 @@ function AssistantBubble({ msg }: { msg: Message }) {
                 Reason
               </div>
               <p style={{ fontSize: 13, color: 'rgba(14,14,9,0.65)', fontFamily: 'var(--font-sans)', fontWeight: 300, lineHeight: 1.55, margin: 0 }}>
-                {r.handoff.reason}
+                {handoffReasonText(r.handoff.reason)}
               </p>
               {r.handoff.gathered.length > 0 && (
                 <ul style={{ margin: '8px 0 0', padding: '0 0 0 14px' }}>

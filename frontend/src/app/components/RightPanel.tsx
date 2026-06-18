@@ -56,7 +56,7 @@ function MemberTab({ member }: { member: Member | null }) {
   const deductibleMet = detail.deductible.used >= detail.deductible.total;
 
   return (
-    <div style={{ overflowY: 'auto', flex: 1, padding: 14, scrollbarWidth: 'none' }}>
+    <div style={{ overflowY: 'auto', flex: 1, padding: 14, paddingBottom: 'calc(28px + env(safe-area-inset-bottom))', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
       <div
         style={{
           background: '#0E0E09', borderRadius: 8, padding: '12px 14px', marginBottom: 16,
@@ -185,7 +185,7 @@ function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
   );
 
   return (
-    <div style={{ overflowY: 'auto', flex: 1, padding: 14, scrollbarWidth: 'none' }}>
+    <div style={{ overflowY: 'auto', flex: 1, padding: 14, paddingBottom: 'calc(28px + env(safe-area-inset-bottom))', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
       <Label>{sources.length} source{sources.length !== 1 ? 's' : ''} · latest answer</Label>
       {sources.map((source, i) => {
         const cit = source.citation;
@@ -237,7 +237,7 @@ function SystemTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
   ] : [];
 
   return (
-    <div style={{ overflowY: 'auto', flex: 1, padding: 14, scrollbarWidth: 'none' }}>
+    <div style={{ overflowY: 'auto', flex: 1, padding: 14, paddingBottom: 'calc(28px + env(safe-area-inset-bottom))', scrollbarWidth: 'none', WebkitOverflowScrolling: 'touch' }}>
       <div style={{ marginBottom: 16 }}>
         <Label>Provider config</Label>
         <Row label="provider" value="Mistral" mono />
@@ -271,12 +271,10 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
 
   const asideStyle: React.CSSProperties = mobile
     ? {
-        width: '100%', maxHeight: '82%',
-        borderTop: '1px solid rgba(14,14,9,0.12)',
-        borderTopLeftRadius: 14, borderTopRightRadius: 14,
+        width: '100%', height: '88vh', maxHeight: '88vh',
+        borderTopLeftRadius: 18, borderTopRightRadius: 18,
         background: '#DDDAC9', display: 'flex', flexDirection: 'column', overflow: 'hidden',
-        boxShadow: '0 -8px 30px rgba(14,14,9,0.18)',
-        paddingBottom: 'env(safe-area-inset-bottom)',
+        boxShadow: '0 -10px 40px rgba(14,14,9,0.28)',
       }
     : {
         width: 282, flexShrink: 0, borderLeft: '1px solid rgba(14,14,9,0.1)',
@@ -285,6 +283,11 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
 
   const aside = (
     <aside style={asideStyle}>
+      {mobile && (
+        <div style={{ flexShrink: 0, display: 'flex', justifyContent: 'center', paddingTop: 9, paddingBottom: 3 }}>
+          <div style={{ width: 38, height: 4, borderRadius: 3, background: 'rgba(14,14,9,0.18)' }} />
+        </div>
+      )}
       <div style={{ display: 'flex', alignItems: 'stretch', borderBottom: '1px solid rgba(14,14,9,0.1)' }}>
         {tabs.map(tab => (
           <button
@@ -330,11 +333,15 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
       onClick={onClose}
       style={{
         position: 'fixed', inset: 0, zIndex: 50,
-        background: 'rgba(14,14,9,0.4)',
+        background: 'rgba(14,14,9,0.45)',
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
+        animation: 'cn-fade-in 0.18s ease-out',
       }}
     >
-      <div onClick={e => e.stopPropagation()} style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+      <div
+        onClick={e => e.stopPropagation()}
+        style={{ display: 'flex', flexDirection: 'column', minHeight: 0, animation: 'cn-slide-up 0.26s cubic-bezier(0.22,1,0.36,1)' }}
+      >
         {aside}
       </div>
     </div>
