@@ -77,6 +77,7 @@ class ClaimRecord(BaseModel):
 class ClaimsInput(BaseModel):
     member_ref: str
     claim_id: str | None = None         # specific claim, else recent claims
+    service_code: str | None = None     # filter to a specific service/procedure code
     limit: int = 5
 
 

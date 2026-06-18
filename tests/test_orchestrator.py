@@ -169,6 +169,32 @@ def test_claim_word_variants_trigger_claims():
         assert plan_tools(q, intent=None).needs_claims is True, q
 
 
+@requires_db
+def test_claims_lookup_filters_by_service_code():
+    """A service_code filter finds the matching claim even when a member has many claims
+    that would otherwise be truncated by the recent-claims limit."""
+    from sqlalchemy import text as sql_text
+
+    from carenav.agents import claims_lookup, create_demo_member_ref
+    from carenav.agents.contracts import ClaimsInput
+    from carenav.data.db import session_scope
+
+    with session_scope() as s:
+        row = s.execute(sql_text(
+            "SELECT member_id, service_code FROM claim GROUP BY member_id, service_code "
+            "HAVING count(*) > 5 LIMIT 1"
+        )).first()
+    if row is None:
+        import pytest
+
+        pytest.skip("no member with >5 claims of one service code in this dataset")
+    member_id, code = row
+    ref = create_demo_member_ref(member_id)
+    out = claims_lookup(ClaimsInput(member_ref=ref, service_code=code))
+    assert out.claims
+    assert all(c.service_code == code for c in out.claims)
+
+
 def test_claims_text_surfaces_referenced_code_first():
     from carenav.agents.contracts import ClaimRecord, ClaimsOutput
     from carenav.orchestrator.tools import _claims_text

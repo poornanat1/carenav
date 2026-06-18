@@ -21,8 +21,10 @@ def claims_lookup(inp: ClaimsInput) -> ClaimsOutput:
         stmt = select(Claim).where(Claim.member_id == member_id)
         if inp.claim_id:
             stmt = stmt.where(Claim.claim_id == inp.claim_id)
+        if inp.service_code:
+            stmt = stmt.where(Claim.service_code == inp.service_code)
         rows = session.execute(stmt.limit(inp.limit)).scalars().all()
-        if inp.claim_id and not rows:
+        if (inp.claim_id or inp.service_code) and not rows:
             out.mark_missing("claim")
             return out
         out.claims = [

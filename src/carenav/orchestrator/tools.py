@@ -256,7 +256,16 @@ def exec_and_reflect(
             run.sources.append(_hit("benefit_lookup", "Your plan benefits", text))
 
     if plan.needs_claims:
-        cl = claims_lookup(ClaimsInput(member_ref=member_ref or ""))
+        # If the question names a specific service code, filter to that claim so it is
+        # found even when the member has hundreds of claims (the default lookup caps at a
+        # few recent ones). Fall back to recent claims when no code is named.
+        code_match = re.search(r"\b\d{6,}\b", question)
+        code = code_match.group(0) if code_match else None
+        cl = claims_lookup(ClaimsInput(member_ref=member_ref or "", service_code=code))
+        if code and not cl.claims:
+            # Named code not on the member's claims — show recent claims so the answer can
+            # say so against real data rather than escalating.
+            cl = claims_lookup(ClaimsInput(member_ref=member_ref or ""))
         run.outputs["claims_lookup"] = cl
         completes.append(cl.complete)
         text = _claims_text(cl, question)
