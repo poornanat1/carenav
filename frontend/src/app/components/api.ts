@@ -44,6 +44,18 @@ export async function listSuggestedQuestions(member: Member): Promise<SuggestedQ
   }
 }
 
+export async function listProviders(
+  member: Member,
+): Promise<{ name: string; specialty: string }[]> {
+  try {
+    return await request<{ name: string; specialty: string }[]>(
+      `/members/${encodeURIComponent(member.id)}/providers`,
+    );
+  } catch {
+    return member.recent_providers ?? [];
+  }
+}
+
 export function detailFor(member: Member): MemberDetail | null {
   if (member.detail) return member.detail;
   if (member.deductible && member.oop) {

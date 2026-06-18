@@ -2,11 +2,28 @@
 
 from __future__ import annotations
 
+from contextlib import contextmanager
+
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from carenav.agents.contracts import ProviderRecord, ProviderSearchInput, ProviderSearchOutput
 from carenav.data.db import session_scope
 from carenav.data.models import PlanNetwork, Provider
+
+
+@contextmanager
+def _session_for(session: Session | None):
+    """Reuse a caller's open session, or open a fresh transactional scope.
+
+    Lets list-building reuse one session for all members instead of opening a nested
+    ``session_scope`` per row (which exhausts the connection pool and hangs the request).
+    """
+    if session is not None:
+        yield session
+    else:
+        with session_scope() as own:
+            yield own
 
 
 def _in_network_npis(session, plan_id: str | None) -> set[str] | None:
@@ -22,20 +39,24 @@ def _in_network_npis(session, plan_id: str | None) -> set[str] | None:
 
 
 def provider_lookup_by_name(
-    name: str, plan_id: str | None = None, limit: int = 3
+    name: str,
+    plan_id: str | None = None,
+    limit: int = 3,
+    session: Session | None = None,
 ) -> ProviderSearchOutput:
     """Find providers whose name matches ``name``, scoped to the plan network when known.
 
     Used to answer follow-ups about a specific recommended provider ("tell me about
     Alan Rosenberg"). Returns at most ``limit`` matches, in-network first when a plan is
     given. Marks ``providers`` missing when nothing matches so the caller can fall through.
+    Pass ``session`` to reuse an open session instead of opening a nested one.
     """
     out = ProviderSearchOutput()
     cleaned = name.strip()
     if not cleaned:
         out.mark_missing("providers")
         return out
-    with session_scope() as session:
+    with _session_for(session) as session:
         in_network_npis = _in_network_npis(session, plan_id)
         stmt = select(Provider).where(Provider.name.ilike(f"%{cleaned}%"))
         if in_network_npis is not None:
@@ -59,9 +80,16 @@ def provider_lookup_by_name(
     return out
 
 
-def provider_search(inp: ProviderSearchInput) -> ProviderSearchOutput:
+def provider_search(
+    inp: ProviderSearchInput, session: Session | None = None
+) -> ProviderSearchOutput:
+    """Search in-network providers by specialty/state.
+
+    Pass ``session`` to reuse an open session (e.g. when called per-row while building a
+    member list) instead of opening a nested ``session_scope`` per call.
+    """
     out = ProviderSearchOutput()
-    with session_scope() as session:
+    with _session_for(session) as session:
         stmt = select(Provider)
         in_network_npis = _in_network_npis(session, inp.plan_id)
         if in_network_npis is not None:

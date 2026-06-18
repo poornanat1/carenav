@@ -92,7 +92,9 @@ def provider_specialty_for_topics(topics: list[str]) -> str | None:
     return None
 
 
-def provider_recommendations(plan_id: str | None, topics: list[str], limit: int = 2) -> list[dict]:
+def provider_recommendations(
+    plan_id: str | None, topics: list[str], limit: int = 2, session=None
+) -> list[dict]:
     if not plan_id:
         return []
     specialty = provider_specialty_for_topics(topics)
@@ -102,11 +104,13 @@ def provider_recommendations(plan_id: str | None, topics: list[str], limit: int 
             specialty=specialty,
             accepting_new=True,
             limit=limit,
-        )
+        ),
+        session=session,
     )
     if not out.providers and specialty:
         out = provider_search(
-            ProviderSearchInput(plan_id=plan_id, accepting_new=True, limit=limit)
+            ProviderSearchInput(plan_id=plan_id, accepting_new=True, limit=limit),
+            session=session,
         )
     return [
         {
@@ -167,7 +171,9 @@ def member_summary(member: Member, index: int = 0) -> MemberSummary:
             }
             for claim in claims
         ],
-        recent_providers=provider_recommendations(member.plan_id, topics),
+        # Provider recommendations are fetched lazily per selected member via
+        # /members/{id}/providers — computing them for every row makes the list hang.
+        recent_providers=[],
         note="Synthetic demo member. "
         + (
             "Active conditions: " + ", ".join(conditions) + "."
@@ -238,6 +244,23 @@ def load_member_summary(member_id: str) -> MemberSummary | None:
             ],
         )
         return member_summary(member, 0) if member else None
+
+
+def provider_recommendations_for_member(member_id: str) -> list[dict]:
+    """Recommended in-network providers for one selected member.
+
+    Fetched lazily by the UI on member-select (like suggested questions) so the bulk
+    /members list stays fast — computing recommendations for all members per list load
+    issues a provider query per row and hangs the request.
+    """
+    with session_scope() as session:
+        member = session.get(
+            Member, member_id, options=[selectinload(Member.conditions)]
+        )
+        if not member:
+            return []
+        topics = condition_topics_for(member)
+        return provider_recommendations(member.plan_id, topics, session=session)
 
 
 def topic_questions(conditions: list[Condition], topics: list[str]) -> list[SuggestedQuestion]:

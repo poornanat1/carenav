@@ -4,7 +4,13 @@ import { MemberSelector } from './components/MemberSelector';
 import { ChatPanel } from './components/ChatPanel';
 import { RightPanel } from './components/RightPanel';
 import { Composer } from './components/Composer';
-import { callTurn, healthCheck, listMembers, listSuggestedQuestions } from './components/api';
+import {
+  callTurn,
+  healthCheck,
+  listMembers,
+  listProviders,
+  listSuggestedQuestions,
+} from './components/api';
 import { useIsMobile } from './components/useMediaQuery';
 import type { Member, Message, SuggestedQuestion } from './components/types';
 
@@ -48,6 +54,14 @@ export default function App() {
     setRightTab('member');
     setPanelOpen(false);
     listSuggestedQuestions(m).then(setSuggestions).catch(() => setSuggestions([]));
+    // Provider recommendations are fetched lazily per member so the /members list stays fast.
+    listProviders(m)
+      .then((providers) => {
+        const withProviders: Member = { ...m, recent_providers: providers };
+        setMember((current) => (current?.id === m.id ? withProviders : current));
+        setMembers((prev) => prev.map((x) => (x.id === m.id ? withProviders : x)));
+      })
+      .catch(() => undefined);
   }
 
   function handleReset() {

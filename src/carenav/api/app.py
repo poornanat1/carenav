@@ -9,8 +9,11 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from carenav.agents import create_demo_member_ref
-from carenav.config import settings
-from carenav.api.members import list_member_summaries, suggested_questions_for_member
+from carenav.api.members import (
+    list_member_summaries,
+    provider_recommendations_for_member,
+    suggested_questions_for_member,
+)
 from carenav.api.profile_turn import profile_turn
 from carenav.api.schemas import (
     CitationOut,
@@ -20,6 +23,7 @@ from carenav.api.schemas import (
     TurnRequest,
     TurnResponse,
 )
+from carenav.config import settings
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.contextualize import Turn, contextualize_question
@@ -48,6 +52,11 @@ async def members() -> list[MemberSummary]:
 @app.get("/members/{member_id}/suggested-questions", response_model=list[SuggestedQuestion])
 async def suggested_questions(member_id: str) -> list[SuggestedQuestion]:
     return await run_in_threadpool(suggested_questions_for_member, member_id)
+
+
+@app.get("/members/{member_id}/providers")
+async def member_providers(member_id: str) -> list[dict]:
+    return await run_in_threadpool(provider_recommendations_for_member, member_id)
 
 
 def _member_ref(req: TurnRequest) -> str | None:
