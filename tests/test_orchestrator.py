@@ -150,6 +150,31 @@ def test_member_context_required_without_ref(monkeypatch):
     assert r.escalated and r.handoff.reason == "member_context_required"
 
 
+def test_scope_sbc_to_plan_filters_other_plans():
+    from carenav.rag.retrieval import _scope_sbc_to_plan
+
+    def hit(doc_id, source_type):
+        return Hit(
+            chunk_id=f"{doc_id}::0", doc_id=doc_id, source_type=source_type,
+            title=doc_id, source_url="", last_reviewed=None, section_path=None,
+            text="x", score=0.5,
+        )
+
+    hits = [
+        hit("sbc-carenav-gold", "sbc"),
+        hit("sbc-carenav-bronze", "sbc"),
+        hit("cms-prior-authorization", "sbc"),  # plan-agnostic, kept
+        hit("openfda-metformin", "drug_label"),  # non-SBC, untouched
+    ]
+    kept = {h.doc_id for h in _scope_sbc_to_plan(hits, "PLN-BRONZE")}
+    assert "sbc-carenav-gold" not in kept           # other plan dropped
+    assert "sbc-carenav-bronze" in kept             # own plan kept
+    assert "cms-prior-authorization" in kept        # plan-agnostic kept
+    assert "openfda-metformin" in kept              # non-SBC kept
+    # No plan_id -> no filtering.
+    assert len(_scope_sbc_to_plan(hits, None)) == len(hits)
+
+
 def test_contextualize_fails_open_without_history_or_gateway():
     from carenav.orchestrator.contextualize import Turn, contextualize_question
 

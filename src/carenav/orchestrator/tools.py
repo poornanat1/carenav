@@ -93,6 +93,7 @@ class ToolRun:
     outputs: dict[str, AgentOutput] = field(default_factory=dict)
     tool_conf: float = 1.0
     member_id_resolved: bool = True
+    plan_id: str | None = None   # resolved member plan, to scope plan-specific KB (SBC)
 
 
 def plan_tools(question: str, intent: str | None) -> ToolPlan:
@@ -211,6 +212,7 @@ def exec_and_reflect(
         completes.append(member_out.complete)
         if "member_ref" in member_out.missing:
             run.member_id_resolved = False
+        run.plan_id = member_out.plan_id
         text = _member_text(member_out)
         if text:
             run.sources.append(_hit("member_account", "Your member account", text))

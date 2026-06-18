@@ -69,3 +69,19 @@ def test_retrieval_conf_in_range():
     conf = retrieval.retrieval_conf(hits)
     assert 0.0 <= conf <= 1.0
     assert retrieval.retrieval_conf([]) == 0.0
+
+
+def test_plan_scope_drops_other_plan_sbc():
+    """A coverage query under a member's plan must never return another plan's SBC, but
+    keeps plan-agnostic coverage docs (cms-*)."""
+    retrieval = _retrieval()
+    hits = retrieval.retrieve(
+        "what does my plan cover", intent="coverage", plan_id="PLN-BRONZE"
+    )
+    sbc_docs = {h.doc_id for h in hits if h.doc_id.startswith("sbc-carenav-")}
+    assert sbc_docs <= {"sbc-carenav-bronze"}, f"leaked other-plan SBC: {sbc_docs}"
+    # Bronze member's own SBC exists in the corpus and should be retrievable.
+    bronze = retrieval.retrieve(
+        "deductible and out-of-pocket limit", intent="coverage", plan_id="PLN-BRONZE"
+    )
+    assert any(h.doc_id == "sbc-carenav-bronze" for h in bronze)

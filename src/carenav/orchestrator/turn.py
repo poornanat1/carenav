@@ -183,7 +183,9 @@ def run_turn(
     # tier is read after the loop (the value that cleared the bar); the for-else escalates
     # if neither tier did.
     for tier, model in (("small", None), ("frontier", settings.model_frontier)):  # noqa: B007
-        answers = _answer_turn(question, subs, kb_intent, tool_run.sources, gw, model)
+        answers = _answer_turn(
+            question, subs, kb_intent, tool_run.sources, gw, model, plan_id=tool_run.plan_id
+        )
         text, citations, grounded = _merge(answers)
         conf = _confidence(intent_conf, answers, grounded, tool_run.tool_conf)
         if conf.weighted_sum() >= bar:
@@ -217,15 +219,22 @@ def _answer_turn(
     tool_sources: list[Hit],
     gw: ModelGateway,
     model: str | None,
+    plan_id: str | None = None,
 ) -> list[RagAnswer]:
     """Generate the grounded answer(s) for a turn.
 
     With tool sources present, ground the WHOLE question over (tool sources + KB hits) in
     one pass — a deductible+MRI turn must cite both the member account and the benefit
     rule. With no tools, fall back to the per-sub-question RAG path (handles comparatives).
+
+    `plan_id` scopes plan-specific SBC chunks to the member's own plan so a coverage
+    answer is never grounded in another plan's Summary of Benefits and Coverage.
     """
     if tool_sources:
-        kb_hits = retrieval.retrieve(question, intent=kb_intent, gateway=gw) if kb_intent else []
+        kb_hits = (
+            retrieval.retrieve(question, intent=kb_intent, gateway=gw, plan_id=plan_id)
+            if kb_intent else []
+        )
         sources = tool_sources + kb_hits
         ans = generate_grounded(
             question, sources, gateway=gw, model=model,
