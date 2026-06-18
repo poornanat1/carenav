@@ -1,5 +1,10 @@
 # CareNav — Orchestrated Health-Benefits & Care Navigator
 
+### 🚀 Live demo: **[carenav-frontend-production.up.railway.app](https://carenav-frontend-production.up.railway.app)**
+
+> Open the link, pick a demo member, and ask about their coverage, claims, or care.
+> All member data is synthetic.
+
 A production-grade, tool-using conversational assistant that helps health-plan
 members with coverage, benefits, claims, provider search, and medication info — with a
 PII-redaction security layer, tiered-model cost optimization, and an eval-driven quality
@@ -39,6 +44,9 @@ directory is a placeholder for a roadmap item.)
 The order these are being built (and why) is in [docs/13-build-plan.md](docs/13-build-plan.md).
 
 ## See it work (60 seconds)
+
+**Zero setup:** open the [live demo](https://carenav-frontend-production.up.railway.app),
+select a member, and start asking. To run it yourself:
 
 ```bash
 cp .env.example .env            # add MISTRAL_API_KEY for generation + embeddings

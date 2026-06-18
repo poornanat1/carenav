@@ -1,4 +1,14 @@
-# Deploying CareNav to Render
+# Deploying CareNav
+
+**Live deployment (Railway):**
+- Frontend: https://carenav-frontend-production.up.railway.app
+- API: https://carenav-api-production.up.railway.app
+
+The Railway setup (pgvector DB + Dockerized API + Caddy-served frontend) is driven by
+`railway.json` / `frontend/railway.json` and the Railway CLI. The Render blueprint below
+(`render.yaml`) is an alternative, equivalent target.
+
+## Deploying to Render
 
 CareNav deploys as three Render resources defined in [`render.yaml`](../render.yaml):
 
