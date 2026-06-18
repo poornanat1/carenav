@@ -11,12 +11,12 @@ type Props = {
 };
 
 const INTENT_STYLE: Record<string, { border: string; bg: string; text: string }> = {
-  member_profile: { border: 'rgba(14,14,9,0.22)', bg: 'rgba(14,14,9,0.045)', text: '#3E3D36' },
-  medication: { border: 'rgba(78,122,78,0.35)',  bg: 'rgba(78,122,78,0.06)',  text: '#3A6B3A' },
-  benefits:   { border: 'rgba(60,90,140,0.3)',   bg: 'rgba(60,90,140,0.05)',  text: '#3A5A8A' },
-  claims:     { border: 'rgba(140,100,40,0.3)',  bg: 'rgba(140,100,40,0.05)', text: '#7A5A20' },
-  providers:  { border: 'rgba(110,60,130,0.3)',  bg: 'rgba(110,60,130,0.05)', text: '#6A3A80' },
-  safety:     { border: 'rgba(160,50,50,0.4)',   bg: 'rgba(160,50,50,0.06)',  text: '#A03030' },
+  member_profile: { border: 'var(--cn-border)', bg: 'var(--cn-surface)', text: 'var(--cn-text)' },
+  medication: { border: 'rgba(31,122,90,0.3)',  bg: 'var(--cn-accent-soft)',  text: 'var(--cn-accent-strong)' },
+  benefits:   { border: 'rgba(39,107,143,0.28)', bg: 'var(--cn-info-soft)',  text: 'var(--cn-info)' },
+  claims:     { border: 'rgba(140,100,40,0.3)',  bg: 'rgba(140,100,40,0.05)', text: 'var(--cn-warn)' },
+  providers:  { border: 'rgba(110,60,130,0.3)',  bg: 'rgba(110,60,130,0.05)', text: '#70418a' },
+  safety:     { border: 'rgba(180,35,47,0.3)',   bg: 'var(--cn-danger-soft)',  text: 'var(--cn-danger)' },
 };
 
 // Human-readable copy for the orchestrator's escalation reason codes. Falls back to
@@ -42,7 +42,7 @@ function LoadingDots() {
             width: 5,
             height: 5,
             borderRadius: '50%',
-            background: 'rgba(14,14,9,0.2)',
+            background: 'var(--cn-muted)',
             animation: `cBounce 1.2s ${i * 0.2}s ease-in-out infinite`,
           }}
         />
@@ -68,8 +68,8 @@ function CitationMarker({ index, citation }: { index: number; citation?: Citatio
         width: 14,
         height: 14,
         borderRadius: '50%',
-        background: 'rgba(78,122,78,0.15)',
-        color: '#4E7A4E',
+        background: 'var(--cn-accent-soft)',
+        color: 'var(--cn-accent-strong)',
         fontSize: 8,
         fontFamily: 'var(--font-mono)',
         fontWeight: 500,
@@ -108,7 +108,7 @@ function renderAnswer(text: string, citations: Citation[]): React.ReactNode[] {
         }
       } else {
         parts.push(
-          <strong key={k++} style={{ fontWeight: 700, color: '#0E0E09' }}>
+          <strong key={k++} style={{ fontWeight: 700, color: 'var(--cn-ink)' }}>
             {match[3]}
           </strong>
         );
@@ -143,7 +143,7 @@ function CitationChips({ citations }: { citations: Citation[] }) {
         style={{
           fontSize: 9,
           fontFamily: 'var(--font-mono)',
-          color: 'rgba(14,14,9,0.28)',
+          color: 'var(--cn-subtle)',
           textTransform: 'uppercase',
           letterSpacing: '0.08em',
         }}
@@ -162,8 +162,8 @@ function CitationChips({ citations }: { citations: Citation[] }) {
                 width: 15,
                 height: 15,
                 borderRadius: '50%',
-                background: 'rgba(78,122,78,0.13)',
-                color: '#4E7A4E',
+                background: 'var(--cn-accent-soft)',
+                color: 'var(--cn-accent-strong)',
                 fontSize: 8,
                 fontFamily: 'var(--font-mono)',
                 fontWeight: 600,
@@ -192,9 +192,9 @@ function CitationChips({ citations }: { citations: Citation[] }) {
           maxWidth: 220,
           padding: '3px 7px 3px 4px',
           borderRadius: 5,
-          border: '1px solid rgba(14,14,9,0.09)',
-          background: 'rgba(14,14,9,0.035)',
-          color: 'rgba(14,14,9,0.55)',
+          border: '1px solid var(--cn-border)',
+          background: 'var(--cn-card-strong)',
+          color: 'var(--cn-muted)',
           fontSize: 10,
           fontFamily: 'var(--font-sans)',
           fontWeight: 400,
@@ -243,7 +243,7 @@ function AssistantBubble({ msg }: { msg: Message }) {
 
   const labelStyle: React.CSSProperties = {
     fontSize: 9,
-    color: 'rgba(14,14,9,0.3)',
+    color: 'var(--cn-subtle)',
     fontFamily: 'var(--font-mono)',
     letterSpacing: '0.08em',
     textTransform: 'uppercase',
@@ -256,11 +256,12 @@ function AssistantBubble({ msg }: { msg: Message }) {
         <div style={labelStyle}>CareNav</div>
         <div
           style={{
-            background: '#EEEADB',
-            border: '1px solid rgba(14,14,9,0.1)',
+            background: 'var(--cn-card-strong)',
+            border: '1px solid var(--cn-border)',
             borderRadius: '3px 10px 10px 10px',
             padding: '12px 16px',
             maxWidth: 420,
+            boxShadow: 'var(--cn-shadow)',
           }}
         >
           <LoadingDots />
@@ -275,16 +276,16 @@ function AssistantBubble({ msg }: { msg: Message }) {
         <div style={labelStyle}>CareNav</div>
         <div
           style={{
-            background: 'rgba(160,48,48,0.05)',
-            border: '1px solid rgba(160,48,48,0.2)',
+            background: 'var(--cn-danger-soft)',
+            border: '1px solid rgba(180,35,47,0.22)',
             borderRadius: '3px 10px 10px 10px',
             padding: '12px 16px',
             maxWidth: 420,
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-            <AlertCircle size={13} color="#A03030" />
-            <span style={{ color: '#A03030', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+            <AlertCircle size={13} color="var(--cn-danger)" />
+            <span style={{ color: 'var(--cn-danger)', fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
               Request failed. Please try again.
             </span>
           </div>
@@ -297,11 +298,11 @@ function AssistantBubble({ msg }: { msg: Message }) {
     const isEmergent = r.safety_flag === 'emergent' || r.handoff?.reason === 'emergent_safety';
     return (
       <div style={{ marginBottom: 22 }}>
-        <div style={{ ...labelStyle, color: 'rgba(160,48,48,0.5)' }}>CareNav · escalation</div>
+        <div style={{ ...labelStyle, color: 'var(--cn-danger)' }}>CareNav · escalation</div>
         <div
           style={{
-            background: 'rgba(160,48,48,0.04)',
-            border: '1.5px solid rgba(160,48,48,0.3)',
+            background: 'var(--cn-danger-soft)',
+            border: '1.5px solid rgba(180,35,47,0.28)',
             borderRadius: '3px 10px 10px 10px',
             padding: '16px',
             maxWidth: 540,
@@ -311,18 +312,18 @@ function AssistantBubble({ msg }: { msg: Message }) {
             <div
               style={{
                 width: 32, height: 32, borderRadius: 7,
-                background: 'rgba(160,48,48,0.1)',
-                border: '1px solid rgba(160,48,48,0.25)',
+                background: 'rgba(180,35,47,0.1)',
+                border: '1px solid rgba(180,35,47,0.25)',
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}
             >
-              <ShieldAlert size={16} color="#A03030" />
+              <ShieldAlert size={16} color="var(--cn-danger)" />
             </div>
             <div>
-              <div style={{ fontWeight: 700, fontSize: 14, color: '#0E0E09', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>
+              <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>
                 {isEmergent ? 'Human handoff recommended' : 'Unable to answer safely'}
               </div>
-              <div style={{ fontSize: 12, color: 'rgba(160,48,48,0.7)', fontFamily: 'var(--font-sans)', fontWeight: 300, marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: 'var(--cn-danger)', fontFamily: 'var(--font-sans)', fontWeight: 400, marginTop: 2 }}>
                 {isEmergent
                   ? 'CareNav does not provide emergency medical advice.'
                   : 'CareNav only answers grounded care, benefit, and selected member profile questions.'}
@@ -333,23 +334,23 @@ function AssistantBubble({ msg }: { msg: Message }) {
           {r.handoff && (
             <div
               style={{
-                background: 'rgba(160,48,48,0.04)',
-                border: '1px solid rgba(160,48,48,0.12)',
+                background: 'rgba(255,255,255,0.56)',
+                border: '1px solid rgba(180,35,47,0.16)',
                 borderRadius: 7,
                 padding: '11px 13px',
                 marginBottom: 12,
               }}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'rgba(160,48,48,0.5)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
                 Reason
               </div>
-              <p style={{ fontSize: 13, color: 'rgba(14,14,9,0.65)', fontFamily: 'var(--font-sans)', fontWeight: 300, lineHeight: 1.55, margin: 0 }}>
+              <p style={{ fontSize: 13, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.55, margin: 0 }}>
                 {handoffReasonText(r.handoff.reason)}
               </p>
               {r.handoff.gathered.length > 0 && (
                 <ul style={{ margin: '8px 0 0', padding: '0 0 0 14px' }}>
                   {r.handoff.gathered.map((g, i) => (
-                    <li key={i} style={{ fontSize: 11, color: 'rgba(14,14,9,0.4)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
+                    <li key={i} style={{ fontSize: 11, color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', lineHeight: 1.6 }}>
                       {g}
                     </li>
                   ))}
@@ -361,7 +362,7 @@ function AssistantBubble({ msg }: { msg: Message }) {
           {isEmergent && (
             <div
               style={{
-                background: '#A03030', borderRadius: 6, padding: '9px 14px',
+                background: 'var(--cn-danger)', borderRadius: 6, padding: '9px 14px',
                 display: 'flex', alignItems: 'center', gap: 8,
               }}
             >
@@ -381,17 +382,18 @@ function AssistantBubble({ msg }: { msg: Message }) {
       <div style={labelStyle}>CareNav</div>
       <div
         style={{
-          background: '#EEEADB',
-          border: '1px solid rgba(14,14,9,0.1)',
+          background: 'var(--cn-card-strong)',
+          border: '1px solid var(--cn-border)',
           borderRadius: '3px 10px 10px 10px',
           padding: '14px 16px',
           maxWidth: 620,
+          boxShadow: 'var(--cn-shadow)',
         }}
       >
         <div
           style={{
-            fontSize: 14, color: 'rgba(14,14,9,0.75)',
-            fontFamily: 'var(--font-sans)', fontWeight: 300,
+            fontSize: 14, color: 'var(--cn-text)',
+            fontFamily: 'var(--font-sans)', fontWeight: 400,
             lineHeight: 1.7, whiteSpace: 'pre-wrap',
           }}
         >
@@ -408,14 +410,14 @@ function AssistantBubble({ msg }: { msg: Message }) {
           <div
             style={{
               marginTop: 11, paddingTop: 10,
-              borderTop: '1px solid rgba(14,14,9,0.07)',
+              borderTop: '1px solid var(--cn-border-soft)',
               display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
             }}
           >
             <MetaPill
-              bg={r.grounded ? 'rgba(78,122,78,0.08)' : 'rgba(14,14,9,0.04)'}
-              color={r.grounded ? '#4E7A4E' : 'rgba(14,14,9,0.3)'}
-              border={r.grounded ? 'rgba(78,122,78,0.25)' : 'rgba(14,14,9,0.1)'}
+              bg={r.grounded ? 'var(--cn-accent-soft)' : 'var(--cn-surface)'}
+              color={r.grounded ? 'var(--cn-accent-strong)' : 'var(--cn-subtle)'}
+              border={r.grounded ? 'rgba(31,122,90,0.25)' : 'var(--cn-border)'}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 {r.grounded ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
@@ -423,19 +425,19 @@ function AssistantBubble({ msg }: { msg: Message }) {
               </span>
             </MetaPill>
 
-            <MetaPill bg="rgba(14,14,9,0.04)" color="rgba(14,14,9,0.35)" border="rgba(14,14,9,0.08)">
+            <MetaPill bg="var(--cn-surface)" color="var(--cn-muted)" border="var(--cn-border-soft)">
               {r.tier_used}
             </MetaPill>
 
             <MetaPill
-              bg={r.confidence >= 0.8 ? 'rgba(78,122,78,0.08)' : r.confidence >= 0.65 ? 'rgba(140,100,40,0.08)' : 'rgba(160,48,48,0.06)'}
-              color={r.confidence >= 0.8 ? '#4E7A4E' : r.confidence >= 0.65 ? '#7A5A20' : '#A03030'}
-              border={r.confidence >= 0.8 ? 'rgba(78,122,78,0.2)' : r.confidence >= 0.65 ? 'rgba(140,100,40,0.2)' : 'rgba(160,48,48,0.2)'}
+              bg={r.confidence >= 0.8 ? 'var(--cn-accent-soft)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.1)' : 'var(--cn-danger-soft)'}
+              color={r.confidence >= 0.8 ? 'var(--cn-accent)' : r.confidence >= 0.65 ? 'var(--cn-warn)' : 'var(--cn-danger)'}
+              border={r.confidence >= 0.8 ? 'rgba(31,122,90,0.2)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.22)' : 'rgba(180,35,47,0.2)'}
             >
               {Math.round(r.confidence * 100)}% confidence
             </MetaPill>
 
-            <MetaPill bg="rgba(14,14,9,0.03)" color="rgba(14,14,9,0.2)" border="rgba(14,14,9,0.06)">
+            <MetaPill bg="var(--cn-surface)" color="var(--cn-subtle)" border="var(--cn-border-soft)">
               ${r.cost_usd.toFixed(5)}
             </MetaPill>
           </div>
@@ -454,23 +456,23 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   if (!member) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#E6E2D4' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--cn-bg)' }}>
         <div
           style={{
             width: 38, height: 38, borderRadius: 8,
-            border: '1.5px solid rgba(14,14,9,0.1)',
+            border: '1.5px solid var(--cn-border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 14,
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="rgba(14,14,9,0.25)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cn-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
             <circle cx="12" cy="7" r="4" />
           </svg>
         </div>
-        <p style={{ fontWeight: 700, fontSize: 14, color: 'rgba(14,14,9,0.5)', fontFamily: 'var(--font-sans)', marginBottom: 4, letterSpacing: '-0.01em' }}>
+        <p style={{ fontWeight: 700, fontSize: 14, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', marginBottom: 4, letterSpacing: '-0.01em' }}>
           Select a member to begin
         </p>
-        <p style={{ fontSize: 12, color: 'rgba(14,14,9,0.3)', fontFamily: 'var(--font-sans)', fontWeight: 300, textAlign: 'center', maxWidth: 240, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 12, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, textAlign: 'center', maxWidth: 240, lineHeight: 1.5 }}>
           Choose a member above to load their context and start navigating care.
         </p>
       </div>
@@ -479,9 +481,9 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   if (messages.length === 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: '#E6E2D4' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--cn-bg)' }}>
         <div style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'rgba(14,14,9,0.3)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
             Suggested for {member.name}
           </span>
         </div>
@@ -506,7 +508,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
             );
           })}
         </div>
-        <p style={{ marginTop: 18, fontSize: 11, color: 'rgba(14,14,9,0.2)', fontFamily: 'var(--font-sans)', fontWeight: 300 }}>
+        <p style={{ marginTop: 18, fontSize: 11, color: 'var(--cn-subtle)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
           or type a question below
         </p>
       </div>
@@ -516,7 +518,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
   return (
     <div
       className="chat-scroll"
-      style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', background: '#E6E2D4', scrollbarWidth: 'none' }}
+      style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', background: 'var(--cn-bg)', scrollbarWidth: 'none' }}
     >
       {messages.map(msg => {
         if (msg.role === 'user') {
@@ -524,18 +526,18 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
             <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 22 }}>
               <div
                 style={{
-                  background: '#0E0E09',
-                  color: 'rgba(230,226,212,0.85)',
+                  background: 'var(--cn-ink)',
+                  color: 'var(--cn-card-strong)',
                   borderRadius: '10px 3px 10px 10px',
                   padding: '10px 15px',
                   maxWidth: 440,
                   fontSize: 14, fontFamily: 'var(--font-sans)',
-                  fontWeight: 300, lineHeight: 1.55,
+                  fontWeight: 400, lineHeight: 1.55,
                 }}
               >
                 {msg.content}
               </div>
-              <span style={{ fontSize: 9, color: 'rgba(14,14,9,0.25)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+              <span style={{ fontSize: 9, color: 'var(--cn-subtle)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </span>
             </div>

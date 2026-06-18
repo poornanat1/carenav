@@ -12,8 +12,8 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
   return (
     <header
       style={{
-        borderBottom: '1px solid rgba(14,14,9,0.12)',
-        background: '#0E0E09',
+        borderBottom: '1px solid rgba(244,247,242,0.14)',
+        background: 'var(--cn-ink)',
         height: 52,
         display: 'flex',
         alignItems: 'center',
@@ -23,10 +23,10 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <Activity size={14} color="#4E7A4E" strokeWidth={2} />
+        <Activity size={14} color="#58b98b" strokeWidth={2} />
         <span
           style={{
-            color: '#E6E2D4',
+            color: 'var(--cn-card-strong)',
             fontFamily: 'var(--font-display)',
             fontWeight: 900,
             fontSize: 17,
@@ -38,7 +38,7 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
         </span>
         <span
           style={{
-            color: 'rgba(230,226,212,0.25)',
+            color: 'rgba(244,247,242,0.58)',
             fontFamily: 'var(--font-mono)',
             fontSize: 9,
             letterSpacing: '0.12em',
@@ -54,7 +54,7 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
           <>
             <span
               style={{
-                color: 'rgba(230,226,212,0.35)',
+                color: 'rgba(244,247,242,0.68)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: 11,
               }}
@@ -62,7 +62,7 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
               Mistral · RAG enabled
             </span>
 
-            <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
+            <div style={{ width: 1, height: 14, background: 'rgba(244,247,242,0.18)' }} />
           </>
         )}
 
@@ -72,14 +72,14 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
               width: 6,
               height: 6,
               borderRadius: '50%',
-              background: apiOnline ? '#4E7A4E' : '#A03030',
-              boxShadow: apiOnline ? '0 0 6px rgba(78,122,78,0.7)' : '0 0 6px rgba(160,48,48,0.45)',
+              background: apiOnline ? '#58b98b' : '#ff8a8f',
+              boxShadow: apiOnline ? '0 0 6px rgba(88,185,139,0.72)' : '0 0 6px rgba(255,138,143,0.5)',
             }}
           />
           {!isMobile && (
             <span
               style={{
-                color: 'rgba(230,226,212,0.35)',
+                color: 'rgba(244,247,242,0.68)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: 11,
               }}
@@ -91,11 +91,11 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
 
         {!isMobile && (
           <>
-            <div style={{ width: 1, height: 14, background: 'rgba(230,226,212,0.12)' }} />
+            <div style={{ width: 1, height: 14, background: 'rgba(244,247,242,0.18)' }} />
 
             <span
               style={{
-                color: 'rgba(230,226,212,0.18)',
+                color: 'rgba(244,247,242,0.52)',
                 fontFamily: 'var(--font-mono)',
                 fontSize: 9,
                 letterSpacing: '0.08em',
@@ -113,9 +113,9 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
             aria-label="Open details panel"
             style={{
               background: 'transparent',
-              border: '1px solid rgba(230,226,212,0.15)',
+              border: '1px solid rgba(244,247,242,0.24)',
               borderRadius: 5,
-              color: 'rgba(230,226,212,0.6)',
+              color: 'rgba(244,247,242,0.78)',
               padding: '5px 9px',
               cursor: 'pointer',
               display: 'flex',
@@ -133,9 +133,9 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
             onClick={onReset}
             style={{
               background: 'transparent',
-              border: '1px solid rgba(230,226,212,0.15)',
+              border: '1px solid rgba(244,247,242,0.24)',
               borderRadius: 5,
-              color: 'rgba(230,226,212,0.35)',
+              color: 'rgba(244,247,242,0.68)',
               padding: '4px 10px',
               fontSize: 11,
               fontFamily: 'var(--font-sans)',
@@ -147,12 +147,12 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
               transition: 'all 0.15s',
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.color = 'rgba(230,226,212,0.7)';
-              e.currentTarget.style.borderColor = 'rgba(230,226,212,0.3)';
+              e.currentTarget.style.color = 'rgba(244,247,242,0.92)';
+              e.currentTarget.style.borderColor = 'rgba(244,247,242,0.42)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.color = 'rgba(230,226,212,0.35)';
-              e.currentTarget.style.borderColor = 'rgba(230,226,212,0.15)';
+              e.currentTarget.style.color = 'rgba(244,247,242,0.68)';
+              e.currentTarget.style.borderColor = 'rgba(244,247,242,0.24)';
             }}
           >
             <RotateCcw size={11} />

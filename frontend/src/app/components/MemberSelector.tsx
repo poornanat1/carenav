@@ -18,8 +18,8 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
   return (
     <div
       style={{
-        borderBottom: '1px solid rgba(14,14,9,0.1)',
-        background: '#DDDAC9',
+        borderBottom: '1px solid var(--cn-border)',
+        background: 'var(--cn-panel)',
         padding: '10px 12px',
       }}
     >
@@ -32,8 +32,8 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
             width: 28,
             height: 72,
             borderRadius: 7,
-            border: '1px solid rgba(14,14,9,0.1)',
-            background: 'rgba(14,14,9,0.03)',
+            border: '1px solid var(--cn-border)',
+            background: 'var(--cn-card)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -41,7 +41,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
             flexShrink: 0,
           }}
         >
-          <ChevronLeft size={14} color="rgba(14,14,9,0.45)" />
+          <ChevronLeft size={14} color="var(--cn-muted)" />
         </button>
 
         <div
@@ -66,9 +66,9 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                 width: 292,
                 minWidth: 292,
                 border: isSelected
-                  ? '1.5px solid rgba(78,122,78,0.5)'
-                  : '1.5px solid rgba(14,14,9,0.1)',
-                background: isSelected ? 'rgba(78,122,78,0.07)' : 'rgba(14,14,9,0.03)',
+                  ? '1.5px solid var(--cn-accent)'
+                  : '1.5px solid var(--cn-border)',
+                background: isSelected ? 'var(--cn-accent-soft)' : 'var(--cn-card)',
                 borderRadius: 7,
                 padding: '9px 12px',
                 cursor: 'pointer',
@@ -78,14 +78,14 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               }}
               onMouseEnter={e => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = 'rgba(14,14,9,0.2)';
-                  e.currentTarget.style.background = 'rgba(14,14,9,0.05)';
+                  e.currentTarget.style.borderColor = 'var(--cn-accent)';
+                  e.currentTarget.style.background = 'var(--cn-card-strong)';
                 }
               }}
               onMouseLeave={e => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = 'rgba(14,14,9,0.1)';
-                  e.currentTarget.style.background = 'rgba(14,14,9,0.03)';
+                  e.currentTarget.style.borderColor = 'var(--cn-border)';
+                  e.currentTarget.style.background = 'var(--cn-card)';
                 }
               }}
             >
@@ -93,7 +93,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                 style={{
                   fontWeight: 700,
                   fontSize: 13,
-                  color: '#0E0E09',
+                  color: 'var(--cn-ink)',
                   fontFamily: 'var(--font-sans)',
                   letterSpacing: '-0.01em',
                 }}
@@ -103,7 +103,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               <div
                 style={{
                   fontSize: 10,
-                  color: isSelected ? '#4E7A4E' : 'rgba(14,14,9,0.45)',
+                  color: isSelected ? 'var(--cn-accent-strong)' : 'var(--cn-muted)',
                   fontFamily: 'var(--font-mono)',
                   marginTop: 2,
                 }}
@@ -113,9 +113,9 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               <div
                 style={{
                   fontSize: 10,
-                  color: 'rgba(14,14,9,0.35)',
+                  color: 'var(--cn-muted)',
                   fontFamily: 'var(--font-sans)',
-                  fontWeight: 300,
+                  fontWeight: 400,
                   marginTop: 3,
                   lineHeight: 1.4,
                 }}
@@ -126,7 +126,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
           );
         })}
         {members.length === 0 && (
-          <div style={{ fontSize: 12, color: 'rgba(14,14,9,0.35)', fontFamily: 'var(--font-sans)', padding: 8 }}>
+          <div style={{ fontSize: 12, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', padding: 8 }}>
             Loading members...
           </div>
         )}
@@ -140,8 +140,8 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
             width: 28,
             height: 72,
             borderRadius: 7,
-            border: '1px solid rgba(14,14,9,0.1)',
-            background: 'rgba(14,14,9,0.03)',
+            border: '1px solid var(--cn-border)',
+            background: 'var(--cn-card)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -149,7 +149,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
             flexShrink: 0,
           }}
         >
-          <ChevronRight size={14} color="rgba(14,14,9,0.45)" />
+          <ChevronRight size={14} color="var(--cn-muted)" />
         </button>
       </div>
     </div>

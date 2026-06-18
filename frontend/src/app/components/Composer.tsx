@@ -3,12 +3,12 @@ import { Send, ArrowUp } from 'lucide-react';
 import type { Member, SuggestedQuestion } from './types';
 
 const INTENT_STYLE: Record<string, { border: string; bg: string; text: string }> = {
-  member_profile: { border: 'rgba(14,14,9,0.22)', bg: 'rgba(14,14,9,0.045)', text: '#3E3D36' },
-  medication: { border: 'rgba(78,122,78,0.35)',  bg: 'rgba(78,122,78,0.07)',  text: '#3A6B3A' },
-  benefits:   { border: 'rgba(60,90,140,0.3)',   bg: 'rgba(60,90,140,0.06)',  text: '#3A5A8A' },
-  claims:     { border: 'rgba(140,100,40,0.3)',  bg: 'rgba(140,100,40,0.06)', text: '#7A5A20' },
-  providers:  { border: 'rgba(110,60,130,0.3)',  bg: 'rgba(110,60,130,0.05)', text: '#6A3A80' },
-  safety:     { border: 'rgba(160,50,50,0.4)',   bg: 'rgba(160,50,50,0.06)',  text: '#A03030' },
+  member_profile: { border: 'var(--cn-border)', bg: 'var(--cn-surface)', text: 'var(--cn-text)' },
+  medication: { border: 'rgba(31,122,90,0.3)',  bg: 'var(--cn-accent-soft)',  text: 'var(--cn-accent-strong)' },
+  benefits:   { border: 'rgba(39,107,143,0.28)', bg: 'var(--cn-info-soft)',  text: 'var(--cn-info)' },
+  claims:     { border: 'rgba(140,100,40,0.3)',  bg: 'rgba(140,100,40,0.06)', text: 'var(--cn-warn)' },
+  providers:  { border: 'rgba(110,60,130,0.3)',  bg: 'rgba(110,60,130,0.05)', text: '#70418a' },
+  safety:     { border: 'rgba(180,35,47,0.3)',   bg: 'var(--cn-danger-soft)',  text: 'var(--cn-danger)' },
 };
 
 type Props = {
@@ -57,18 +57,18 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
   const canSend = !disabled && value.trim().length > 0;
 
   return (
-    <div style={{ borderTop: '1px solid rgba(14,14,9,0.1)', background: '#DDDAC9', flexShrink: 0 }}>
+    <div style={{ borderTop: '1px solid var(--cn-border)', background: 'var(--cn-panel)', flexShrink: 0 }}>
       {!member && (
         <div
           style={{
             display: 'flex', alignItems: 'center', gap: 8,
             padding: '10px 14px',
-            borderBottom: '1px solid rgba(78,122,78,0.18)',
-            background: 'rgba(78,122,78,0.06)',
+            borderBottom: '1px solid rgba(31,122,90,0.2)',
+            background: 'var(--cn-accent-soft)',
           }}
         >
-          <ArrowUp size={14} color="#4E7A4E" style={{ flexShrink: 0 }} />
-          <span style={{ fontSize: 12, color: '#3A6B3A', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.4 }}>
+          <ArrowUp size={14} color="var(--cn-accent)" style={{ flexShrink: 0 }} />
+          <span style={{ fontSize: 12, color: 'var(--cn-accent-strong)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.4 }}>
             Select a member above to start asking about their coverage, claims, and care.
           </span>
         </div>
@@ -115,33 +115,33 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
           rows={1}
           style={{
             flex: 1, resize: 'none',
-            border: '1px solid rgba(14,14,9,0.12)',
+            border: '1px solid var(--cn-border)',
             borderRadius: 7,
             padding: '9px 13px',
-            fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 300,
-            color: '#0E0E09',
-            background: disabled ? 'rgba(14,14,9,0.03)' : '#E6E2D4',
+            fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 400,
+            color: 'var(--cn-ink)',
+            background: disabled ? 'var(--cn-surface)' : 'var(--cn-card-strong)',
             outline: 'none', lineHeight: 1.55, transition: 'border-color 0.15s',
             overflowY: 'hidden', minHeight: 40,
           }}
-          onFocus={e => (e.currentTarget.style.borderColor = 'rgba(78,122,78,0.5)')}
-          onBlur={e => (e.currentTarget.style.borderColor = 'rgba(14,14,9,0.12)')}
+          onFocus={e => (e.currentTarget.style.borderColor = 'var(--cn-accent)')}
+          onBlur={e => (e.currentTarget.style.borderColor = 'var(--cn-border)')}
         />
         <button
           onClick={handleSend}
           disabled={!canSend}
           style={{
             width: 38, height: 38, borderRadius: 7,
-            background: canSend ? 'rgba(78,122,78,0.1)' : 'rgba(14,14,9,0.04)',
-            border: canSend ? '1px solid rgba(78,122,78,0.35)' : '1px solid rgba(14,14,9,0.1)',
+            background: canSend ? 'var(--cn-accent)' : 'var(--cn-surface)',
+            border: canSend ? '1px solid var(--cn-accent)' : '1px solid var(--cn-border)',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: canSend ? 'pointer' : 'not-allowed',
             transition: 'all 0.15s', flexShrink: 0,
           }}
-          onMouseEnter={e => { if (canSend) e.currentTarget.style.background = 'rgba(78,122,78,0.18)'; }}
-          onMouseLeave={e => { if (canSend) e.currentTarget.style.background = 'rgba(78,122,78,0.1)'; }}
+          onMouseEnter={e => { if (canSend) e.currentTarget.style.background = 'var(--cn-accent-strong)'; }}
+          onMouseLeave={e => { if (canSend) e.currentTarget.style.background = 'var(--cn-accent)'; }}
         >
-          <Send size={14} color={canSend ? '#4E7A4E' : 'rgba(14,14,9,0.2)'} />
+          <Send size={14} color={canSend ? '#ffffff' : 'var(--cn-subtle)'} />
         </button>
       </div>
     </div>
