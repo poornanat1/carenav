@@ -22,15 +22,16 @@ def provider_search(inp: ProviderSearchInput) -> ProviderSearchOutput:
                     )
                 ).scalars()
             )
-            if in_network_npis:
-                stmt = stmt.where(Provider.npi.in_(in_network_npis))
+            stmt = stmt.where(Provider.npi.in_(in_network_npis or {"__no_in_network_npi__"}))
         if inp.specialty:
             stmt = stmt.where(Provider.specialty.ilike(f"%{inp.specialty}%"))
+        else:
+            stmt = stmt.where(Provider.specialty.is_not(None))
         if inp.state:
             stmt = stmt.where(Provider.state == inp.state.upper())
         if inp.accepting_new is not None:
             stmt = stmt.where(Provider.accepting_new.is_(inp.accepting_new))
-        rows = session.execute(stmt.limit(inp.limit)).scalars().all()
+        rows = session.execute(stmt.order_by(Provider.name).limit(inp.limit)).scalars().all()
         out.providers = [
             ProviderRecord(
                 npi=p.npi,

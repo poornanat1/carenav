@@ -89,6 +89,9 @@ def _parse_real_file(n_max: int) -> list[dict]:
             if keep_states and state not in keep_states:
                 continue
             tax = row.get("Healthcare Provider Taxonomy Code_1", "")
+            specialty = tax_to_spec.get(tax)
+            if not specialty:
+                continue
             org = row.get("Provider Organization Name (Legal Business Name)", "").strip()
             first = row.get("Provider First Name", "").strip()
             last = row.get("Provider Last Name (Legal Name)", "").strip()
@@ -99,7 +102,7 @@ def _parse_real_file(n_max: int) -> list[dict]:
                 "npi": row.get("NPI", ""),
                 "name": name,
                 "taxonomy": tax,
-                "specialty": tax_to_spec.get(tax),
+                "specialty": specialty,
                 "address": row.get("Provider Business Practice Location Address Line 1", ""),
                 "city": row.get("Provider Business Practice Location Address City Name", ""),
                 "state": state,

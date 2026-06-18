@@ -8,6 +8,8 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 
 from carenav.agents import create_demo_member_ref
+from carenav.agents.contracts import ProviderSearchInput
+from carenav.agents.providers import provider_search
 from carenav.api.schemas import MemberSummary, SuggestedQuestion
 from carenav.data import condition_topics
 from carenav.data.db import session_scope
@@ -75,6 +77,46 @@ def medications_for_topics(topics: list[str]) -> list[str]:
     return meds or ["No active medication data loaded"]
 
 
+def provider_specialty_for_topics(topics: list[str]) -> str | None:
+    for topic in topics:
+        if topic in {"heart-disease", "high-blood-pressure", "high-cholesterol"}:
+            return "Cardiology"
+        if topic == "type-2-diabetes":
+            return "Endocrinology"
+        if topic in {"asthma", "copd", "pneumonia"}:
+            return "Pulmonary Disease"
+        if topic in {"low-back-pain", "arthritis-joint", "osteoporosis"}:
+            return "Orthopedic"
+        if topic in {"cancer"}:
+            return "Oncology"
+    return None
+
+
+def provider_recommendations(plan_id: str | None, topics: list[str], limit: int = 2) -> list[dict]:
+    if not plan_id:
+        return []
+    specialty = provider_specialty_for_topics(topics)
+    out = provider_search(
+        ProviderSearchInput(
+            plan_id=plan_id,
+            specialty=specialty,
+            accepting_new=True,
+            limit=limit,
+        )
+    )
+    if not out.providers and specialty:
+        out = provider_search(
+            ProviderSearchInput(plan_id=plan_id, accepting_new=True, limit=limit)
+        )
+    return [
+        {
+            "name": provider.name,
+            "specialty": provider.specialty or "Provider",
+        }
+        for provider in out.providers
+    ]
+
+
 def display_name(name: str, fallback: str) -> str:
     parts = [part for part in name.split() if part]
     if not parts:
@@ -125,7 +167,7 @@ def member_summary(member: Member, index: int = 0) -> MemberSummary:
             }
             for claim in claims
         ],
-        recent_providers=[],
+        recent_providers=provider_recommendations(member.plan_id, topics),
         note="Synthetic demo member. "
         + (
             "Active conditions: " + ", ".join(conditions) + "."

@@ -2,8 +2,13 @@
 (no DB, no network: those paths short-circuit before retrieval); the LLM-backed
 decompose split needs real generation and skips without quota."""
 
+from sqlalchemy import select
+
 from carenav.agents.contracts import BenefitLookupOutput
+from carenav.api.profile_turn import profile_turn
 from carenav.config import settings
+from carenav.data.db import session_scope
+from carenav.data.models import Member
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.decompose import _COMPARATIVE, decompose
@@ -44,6 +49,7 @@ def test_emergent_turn_escalates_to_human_without_model_calls(monkeypatch):
 
 def test_fast_path_provider_search():
     assert _fast_path("Can you help me find a cardiologist near me?") == "provider_search"
+    assert _fast_path("Can you recommend an in-network endocrinologist?") == "provider_search"
 
 
 def test_fast_path_medication_and_coverage():
@@ -64,6 +70,26 @@ def test_provider_search_runs_the_tool(monkeypatch):
     else:
         assert r.citations and r.tier_used == "none"
         assert "providers" in r.answer.lower()
+
+
+@requires_db
+def test_selected_member_provider_recommendations_use_nppes(monkeypatch):
+    monkeypatch.setattr(settings, "stub_generation", True)
+    with session_scope() as session:
+        member_id = session.scalar(select(Member.member_id).limit(1))
+
+    r = profile_turn(
+        "Can you recommend an in-network specialist near me?",
+        None,
+        member_id,
+        ModelGateway(),
+    )
+
+    assert r is not None
+    assert r.intent == "provider_search"
+    assert not r.escalated
+    assert r.citations
+    assert "Recommended in-network providers" in r.answer
 
 
 # --- decompose ------------------------------------------------------------------------------

@@ -143,8 +143,8 @@ function MemberTab({ member }: { member: Member | null }) {
       </div>
 
       <div>
-        <Label>Recent providers</Label>
-        {detail.recentProviders.map((p, i) => (
+        <Label>Recommended providers</Label>
+        {detail.recentProviders.slice(0, 2).map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
             <div style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--cn-border)', background: 'var(--cn-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <User size={12} color="var(--cn-muted)" />

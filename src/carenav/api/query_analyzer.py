@@ -9,6 +9,7 @@ must not depend on model judgment.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -189,6 +190,24 @@ def _is_benefit_coverage_language(question: str) -> bool:
     return any(term in low for term in coverage_terms)
 
 
+_PROVIDER_SEARCH_RE = re.compile(
+    r"\bfind (a |an )?(doctor|cardiologist|specialist|provider|dermatologist|"
+    r"pediatrician|endocrinologist|orthopedist|orthopedic specialist|neurologist|"
+    r"oncologist|ophthalmologist)\b|"
+    r"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b("
+    r"doctor|provider|specialist|cardiologist|dermatologist|pediatrician|"
+    r"endocrinologist|orthopedist|neurologist|oncologist|ophthalmologist)\b|"
+    r"\b(in[- ]network|near me)\b.*\b(doctor|provider|specialist|cardiologist|"
+    r"dermatologist|pediatrician|endocrinologist|orthopedist|neurologist|"
+    r"oncologist|ophthalmologist)\b",
+    re.IGNORECASE,
+)
+
+
+def is_provider_search_question(question: str) -> bool:
+    return bool(_PROVIDER_SEARCH_RE.search(question))
+
+
 def _guardrail_analysis(
     question: str,
     summary: MemberContext,
@@ -197,6 +216,13 @@ def _guardrail_analysis(
 ) -> QueryAnalysis | None:
     low = question.lower()
     profile_mentioned = _mentions_selected_profile(question, summary)
+
+    if is_provider_search_question(question):
+        return QueryAnalysis(
+            scope="profile",
+            kind="provider_search",
+            needs_profile=True,
+        )
 
     if include_soft and _is_educational_question(question) and not profile_mentioned:
         return QueryAnalysis(

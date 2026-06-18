@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+from sqlalchemy import select
+
 from carenav.agents import resolve_member_ref
+from carenav.agents.contracts import ProviderSearchInput, ProviderSearchOutput
+from carenav.agents.providers import provider_search
 from carenav.api.members import load_member_summary, topic_label
 from carenav.api.query_analyzer import (
     QueryAnalysis,
@@ -11,8 +15,11 @@ from carenav.api.query_analyzer import (
 )
 from carenav.api.schemas import MemberSummary
 from carenav.data import condition_topics
+from carenav.data.db import session_scope
+from carenav.data.models import Member
 from carenav.models import ModelGateway
 from carenav.orchestrator.state import ConfidenceBreakdown, TurnResult
+from carenav.orchestrator.turn import _tools_specialty
 from carenav.rag import retrieval
 from carenav.rag.agent import Citation, generate_grounded
 from carenav.rag.retrieval import Hit
@@ -119,6 +126,106 @@ def _profile_result(
         safety_flag="none",
         cost_usd=gateway.ledger.total_cost_usd,
         rag_answers=rag_answers or [],
+    )
+
+
+def _member_plan_id(member_id: str) -> str | None:
+    with session_scope() as session:
+        return session.scalar(select(Member.plan_id).where(Member.member_id == member_id))
+
+
+def _provider_search_for_member(question: str, plan_id: str | None) -> ProviderSearchOutput:
+    specialty = _tools_specialty(question)
+    out = provider_search(
+        ProviderSearchInput(
+            specialty=specialty,
+            plan_id=plan_id,
+            accepting_new=True,
+            limit=5,
+        )
+    )
+    if not out.providers and specialty:
+        out = provider_search(
+            ProviderSearchInput(
+                plan_id=plan_id,
+                accepting_new=True,
+                limit=5,
+            )
+        )
+    return out
+
+
+def _provider_recommendation_result(
+    question: str,
+    summary: MemberSummary,
+    plan_id: str | None,
+    gateway: ModelGateway,
+) -> TurnResult:
+    out = _provider_search_for_member(question, plan_id)
+    specialty = _tools_specialty(question)
+    if not out.providers:
+        conf = ConfidenceBreakdown(intent_conf=1.0, tool_conf=0.0)
+        return TurnResult(
+            question=question,
+            intent="provider_search",
+            sub_questions=[question],
+            answer="",
+            citations=[],
+            grounded=False,
+            escalated=True,
+            handoff=None,
+            confidence=conf,
+            tier_used="human",
+            safety_flag="none",
+            cost_usd=gateway.ledger.total_cost_usd,
+            rag_answers=[],
+        )
+
+    fallback_note = ""
+    if specialty and not any(
+        specialty.lower() in (provider.specialty or "").lower() for provider in out.providers
+    ):
+        fallback_note = (
+            f"I did not find accepting in-network {specialty.lower()} matches, so here are "
+            "accepting in-network providers from the member's plan network instead.\n"
+        )
+
+    lines = []
+    for provider in out.providers:
+        location = ", ".join(part for part in (provider.city, provider.state) if part)
+        status = (
+            "accepting new patients"
+            if provider.accepting_new
+            else "not accepting new patients"
+        )
+        specialty_text = provider.specialty or "Provider"
+        location_text = f" — {location}" if location else ""
+        lines.append(f"- {provider.name} ({specialty_text}){location_text}; {status}.")
+
+    answer = (
+        f"{fallback_note}Recommended in-network providers for {summary.name.rstrip('.')}:\n"
+        + "\n".join(lines)
+    )
+    citations = [
+        Citation(f"tool:provider:{provider.npi}", provider.name, "", None)
+        for provider in out.providers
+    ]
+    return TurnResult(
+        question=question,
+        intent="provider_search",
+        sub_questions=[question],
+        answer=answer,
+        citations=citations,
+        grounded=True,
+        escalated=False,
+        handoff=None,
+        confidence=ConfidenceBreakdown(
+            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
+        ),
+        tier_used="none",
+        safety_flag="none",
+        cost_usd=gateway.ledger.total_cost_usd,
+        rag_answers=[],
     )
 
 
@@ -287,6 +394,10 @@ def profile_turn(
     analysis = analyze_member_query(question, summary, gateway)
     if not analysis.needs_profile:
         return None
+    if analysis.kind == "provider_search":
+        return _provider_recommendation_result(
+            question, summary, _member_plan_id(member_id), gateway
+        )
 
     slotted = _answer_profile_slot(question, summary, analysis, hit, gateway)
     if slotted:
