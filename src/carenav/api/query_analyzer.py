@@ -208,6 +208,42 @@ def is_provider_search_question(question: str) -> bool:
     return bool(_PROVIDER_SEARCH_RE.search(question))
 
 
+_PROVIDER_DETAIL_RE = re.compile(
+    r"^\s*(tell me (more )?about|who('?s| is)|more about|what about|details? (on|about)|"
+    r"info(rmation)? (on|about))\s+(dr\.?\s+)?(?P<name>[a-z][a-z.'\- ]+?)\s*\??$",
+    re.IGNORECASE,
+)
+
+
+def provider_detail_name(question: str) -> str | None:
+    """Extract a candidate provider name from a 'tell me about <name>' question.
+
+    Returns the trailing name phrase when the question is a person-detail ask and does NOT
+    resolve to a condition topic (those stay educational/KB). The returned string is only a
+    candidate — the caller confirms it against the in-network provider list before answering.
+    """
+    if mentioned_condition_topic(question) or _is_benefit_coverage_language(question):
+        return None
+    match = _PROVIDER_DETAIL_RE.match(question.strip())
+    if not match:
+        return None
+    name = match.group("name").strip()
+    # Reject account/coverage phrases ("my deductible", "this plan") — those are not names
+    # and have their own guardrails further down.
+    name_words = set(name.lower().split())
+    account_words = {
+        "my", "deductible", "plan", "claim", "claims", "coverage", "copay", "benefit",
+        "benefits", "medication", "medications", "condition", "conditions", "profile",
+        "account", "this", "that",
+    }
+    if name_words & account_words:
+        return None
+    # A single short word is too ambiguous to treat as a provider name.
+    if len(name.split()) < 2 and len(name) < 4:
+        return None
+    return name
+
+
 def _guardrail_analysis(
     question: str,
     summary: MemberContext,
@@ -221,6 +257,13 @@ def _guardrail_analysis(
         return QueryAnalysis(
             scope="profile",
             kind="provider_search",
+            needs_profile=True,
+        )
+
+    if provider_detail_name(question):
+        return QueryAnalysis(
+            scope="profile",
+            kind="provider_detail",
             needs_profile=True,
         )
 

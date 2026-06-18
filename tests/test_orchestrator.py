@@ -8,7 +8,7 @@ from carenav.agents.contracts import BenefitLookupOutput
 from carenav.api.profile_turn import profile_turn
 from carenav.config import settings
 from carenav.data.db import session_scope
-from carenav.data.models import Member
+from carenav.data.models import Member, PlanNetwork, Provider
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.decompose import _COMPARATIVE, decompose
@@ -90,6 +90,39 @@ def test_selected_member_provider_recommendations_use_nppes(monkeypatch):
     assert not r.escalated
     assert r.citations
     assert "Recommended in-network providers" in r.answer
+
+
+@requires_db
+def test_provider_detail_answers_by_name(monkeypatch):
+    monkeypatch.setattr(settings, "stub_generation", True)
+    with session_scope() as session:
+        member_id = session.scalar(select(Member.member_id).limit(1))
+        plan_id = session.scalar(select(Member.plan_id).where(Member.member_id == member_id))
+        # Pick a real in-network provider for this member's plan to ask about by name.
+        name = session.scalar(
+            select(Provider.name)
+            .join(PlanNetwork, PlanNetwork.npi == Provider.npi)
+            .where(PlanNetwork.plan_id == plan_id, PlanNetwork.in_network.is_(True))
+            .limit(1)
+        )
+
+    assert name, "expected at least one in-network provider for the member's plan"
+    r = profile_turn(f"tell me about {name}", None, member_id, ModelGateway())
+
+    assert r is not None
+    assert r.intent == "provider_search"
+    assert not r.escalated
+    assert r.citations
+    assert name in r.answer
+
+
+def test_provider_detail_name_ignores_conditions_and_account():
+    from carenav.api.query_analyzer import provider_detail_name
+
+    assert provider_detail_name("tell me about alan rosenberg") == "alan rosenberg"
+    assert provider_detail_name("who is Dr. Alan Rosenberg?") == "Alan Rosenberg"
+    assert provider_detail_name("tell me about my deductible") is None
+    assert provider_detail_name("tell me about heart disease") is None
 
 
 # --- decompose ------------------------------------------------------------------------------

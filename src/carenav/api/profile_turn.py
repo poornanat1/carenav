@@ -6,11 +6,12 @@ from sqlalchemy import select
 
 from carenav.agents import resolve_member_ref
 from carenav.agents.contracts import ProviderSearchInput, ProviderSearchOutput
-from carenav.agents.providers import provider_search
+from carenav.agents.providers import provider_lookup_by_name, provider_search
 from carenav.api.members import load_member_summary, topic_label
 from carenav.api.query_analyzer import (
     QueryAnalysis,
     analyze_member_query,
+    provider_detail_name,
     resolve_condition_topic,
 )
 from carenav.api.schemas import MemberSummary
@@ -229,6 +230,57 @@ def _provider_recommendation_result(
     )
 
 
+def _provider_detail_result(
+    question: str,
+    plan_id: str | None,
+    gateway: ModelGateway,
+) -> TurnResult | None:
+    """Answer a 'tell me about <provider>' follow-up about a recommended provider.
+
+    Returns None when the candidate name does not match an in-network provider, so the
+    caller falls through to normal profile/KB handling instead of inventing an answer.
+    """
+    name = provider_detail_name(question)
+    if not name:
+        return None
+    out = provider_lookup_by_name(name, plan_id)
+    if not out.providers:
+        return None
+
+    provider = out.providers[0]
+    location = ", ".join(part for part in (provider.city, provider.state) if part)
+    status = (
+        "is accepting new patients"
+        if provider.accepting_new
+        else "is not currently accepting new patients"
+    )
+    network = "in-network" if provider.in_network else "out-of-network"
+    descriptor = f"{network} {provider.specialty}" if provider.specialty else f"{network} provider"
+    article = "an" if descriptor[:1].lower() in "aeiou" else "a"
+    location_text = f" in {location}" if location else ""
+    answer = (
+        f"{provider.name} is {article} {descriptor}{location_text} and {status}."
+    )
+    citations = [Citation(f"tool:provider:{provider.npi}", provider.name, "", None)]
+    return TurnResult(
+        question=question,
+        intent="provider_search",
+        sub_questions=[question],
+        answer=answer,
+        citations=citations,
+        grounded=True,
+        escalated=False,
+        handoff=None,
+        confidence=ConfidenceBreakdown(
+            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
+        ),
+        tier_used="none",
+        safety_flag="none",
+        cost_usd=gateway.ledger.total_cost_usd,
+        rag_answers=[],
+    )
+
+
 def _risk_answer(
     question: str,
     summary: MemberSummary,
@@ -398,6 +450,10 @@ def profile_turn(
         return _provider_recommendation_result(
             question, summary, _member_plan_id(member_id), gateway
         )
+    if analysis.kind == "provider_detail":
+        # On no match, fall through to None so the general orchestrator handles it as a
+        # normal "tell me about X" question instead of escalating from the profile path.
+        return _provider_detail_result(question, _member_plan_id(member_id), gateway)
 
     slotted = _answer_profile_slot(question, summary, analysis, hit, gateway)
     if slotted:
