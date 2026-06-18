@@ -59,7 +59,7 @@ Anything off the hot path goes through an async queue (see [12-scalability.md](1
 
 ```
 carenav/
-├── README.md                      # hiring-manager-facing: what, why, value story, how to run
+├── README.md                      # what, why, and how to run
 ├── docs/                          # these documents
 ├── carenav/
 │   ├── orchestrator/              # typed node pipeline: route/plan/tool_exec/reflect (§4.1)

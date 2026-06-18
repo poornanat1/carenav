@@ -25,8 +25,8 @@ These were left open in the spec and are now decided:
 |---|---|---|
 | **Model providers** | **Fireworks-hosted Mistral** — `accounts/fireworks/models/mistral-small-24b-instruct-2501` (small/Tier 1), `accounts/fireworks/models/mistral-large-3-fp8` (frontier/Tier 2); **Mistral** — `mistral-embed` for embeddings | The gateway stays provider-agnostic while using Fireworks for generation and managed PII fine-tuning. Embeddings remain Mistral-backed at 1024 dimensions. |
 | **Vector store** | **pgvector on Postgres** | One fewer moving part, prod-shaped. Retrieval is a single `hybrid_search` SQL function (vector + full-text). |
-| **Frontend** | **React** | Reads more "product" than Streamlit; costs more frontend time. |
-| **Structured DB** | **Postgres** | Same engine as the vector store. **Postgres everywhere** — pgvector + full-text are core to retrieval, dev, and prod. |
+| **Frontend** | **React** | Chat UI. |
+| **Structured DB** | **Postgres** | Same engine as the vector store. pgvector and full-text are core to retrieval in dev and prod. |
 | **Benefit-rule data** | **Minimal & documented** | The single hand-built artifact; keep it small, plausible, and explained inline. |
 
 ## Design implications of the provider split
@@ -39,12 +39,11 @@ These were left open in the spec and are now decided:
   aligned with the pgvector column.
 - pgvector lives in **Postgres** — the same Postgres instance can hold both
   structured tables and embeddings, simplifying the deployment story.
-- The `ModelGateway` must still expose a provider-agnostic interface (other providers
-  swappable) so the "model integration" grading point holds. See
-  [06-model-tiering.md](06-model-tiering.md).
+- The `ModelGateway` exposes a provider-agnostic interface so other providers stay
+  swappable. See [06-model-tiering.md](06-model-tiering.md).
 
 ## Provider-agnostic boundary (non-negotiable)
 
 No application code outside `carenav/models/` may import a provider SDK directly.
-Everything goes through `ModelGateway`. This keeps cost capture centralized and the
-swap story credible.
+Everything goes through `ModelGateway`. This keeps cost capture centralized and makes
+providers swappable.

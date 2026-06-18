@@ -4,7 +4,7 @@ Implements spec §8. Lives in `carenav/telemetry/`. **Cold path — never blocks
 
 ## Tracing
 
-- **One OpenTelemetry span tree per turn** — a span per node, per tool call, per model
+- **One OpenTelemetry span tree per turn**: a span per node, per tool call, per model
   call.
 - Span attributes: `tier`, token counts, latency, confidence breakdown, escalation
   decision.
@@ -24,7 +24,7 @@ This gives a per-turn picture of where time and tokens went, and why a turn esca
 - Structured **JSON**.
 - **Redacted bodies only**, with **entity counts** for the PII audit
   ([05-redaction.md](05-redaction.md)).
-- No PHI values, ever — `pii_map` is out of band and never logged.
+- No PHI values, ever. `pii_map` is out of band and never logged.
 
 ## Dashboards
 
@@ -37,5 +37,5 @@ This gives a per-turn picture of where time and tokens went, and why a turn esca
 ## Invariant
 
 Telemetry export, eval logging, and any dashboard feed run on the **cold path** via the
-async queue ([12-scalability.md](12-scalability.md)) — observability must never add
+async queue ([12-scalability.md](12-scalability.md)). Observability must never add
 latency to the hot turn-serving path.

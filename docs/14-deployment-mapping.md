@@ -1,7 +1,7 @@
 # 14 — Deployment Mapping
 
-Implements spec §13. The core stays **cloud-agnostic by design**; this doc maps each
-CareNav component onto a generic managed-service category so it can land on any cloud.
+Implements spec §13. The core is cloud-agnostic. This doc maps each CareNav component
+onto a generic managed-service category so it can land on any cloud.
 
 ## Component → managed-service category
 
@@ -16,32 +16,29 @@ CareNav component onto a generic managed-service category so it can land on any 
 | Async queue | Managed queue |
 | Conversation state | Managed key-value / cache store |
 | Eval | CI + an eval service |
-| The CX framing | A conversational-support / contact-center product line |
 | Value dashboard | A BI / dashboarding tool |
 | Tracing / cost | Managed tracing + monitoring |
 
-## The one-liner
+## Summary
 
-*The architecture is cloud-agnostic by design; every component has a first-class
-managed-service equivalent, and Synthea's FHIR output drops straight into any FHIR
-store.*
+Every component has a managed-service equivalent. Synthea's FHIR output drops straight
+into any FHIR store.
 
 ## How the settled decisions land
 
-The settled choices ([02](02-tech-stack.md)) make several of these mappings the
-**actual implementation**, not just analogs:
+The settled choices ([02](02-tech-stack.md)) make several of these mappings the actual
+implementation, not just analogs:
 
 - **Models** → Fireworks via API (`mistral-small-24b-instruct-2501` /
-  `mistral-large-3-fp8`), reached through
-  the provider-agnostic `ModelGateway`.
+  `mistral-large-3-fp8`), reached through the `ModelGateway`.
 - **PII detector** → Fireworks supervised fine-tune, deployed as a LoRA route on a
   base-model deployment.
 - **Embeddings** → Mistral `mistral-embed`, called through the same gateway.
-- **DB + vector store** → managed Postgres + pgvector (the real store), with a
-  backend-neutral retrieval interface.
+- **DB + vector store** → managed Postgres + pgvector, with a backend-neutral retrieval
+  interface.
 
-The provider-agnostic `ModelGateway` and backend-neutral retrieval interface preserve
-the "cloud-agnostic core" claim regardless of where it is deployed.
+The `ModelGateway` and backend-neutral retrieval interface keep the core cloud-agnostic
+regardless of where it is deployed.
 
 ## Where this doc lives
 

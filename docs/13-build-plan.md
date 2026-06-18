@@ -14,9 +14,9 @@ Implements spec §11. **Each delivery stage is independently demoable.**
 
 ## Sequencing guidance
 
-- **Ship the data, RAG, orchestrator, and redaction stages first** if you need a fast credible demo.
-- **Tiering, evaluation, and deployment docs** are where the "production" signal compounds (cost optimization, eval
-  discipline, value articulation, scale story).
+- Ship the data, RAG, orchestrator, and redaction stages first for a fast working demo.
+- Tiering, evaluation, and the deployment docs come next: cost optimization, eval
+  discipline, and the scale story build on the stages below them.
 
 ## Dependency notes
 

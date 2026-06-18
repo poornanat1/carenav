@@ -52,15 +52,15 @@ Key points:
 - `emergent` **never** reaches the scoring logic — it short-circuits to human.
 - A frontier retry happens **at most once** before human handoff.
 
-## The GEPA story, applied to serving
+## Threshold sweep
 
-The eval harness **sweeps `TAU_LOW` / `TAU_HIGH`** and reports the
-**quality-vs-cost frontier**: for each threshold, what % of turns the small model
-handles and at what task-success / groundedness.
+The eval harness sweeps `TAU_LOW` / `TAU_HIGH` and reports the quality-vs-cost frontier.
+For each threshold it records what percentage of turns the small model handles, at what
+task-success and groundedness.
 
-**Headline result to demonstrate:** *the small model handles the large majority of
-turns at quality statistically indistinguishable from the frontier model, at a
-fraction of the cost.* Report **tier distribution alongside cost/conversation**.
+The aim is for the small model to handle the large majority of turns at quality close to
+the frontier model, at a fraction of the cost. The report shows tier distribution
+alongside cost per conversation.
 
 This sweep is produced by `eval/run.py` ([09-eval.md](09-eval.md)).
 
@@ -82,21 +82,16 @@ guess. (Echoed in [01](01-architecture.md) and [12](12-scalability.md).)
 
 ## Implementation status
 
-**`ModelGateway` v1 shipped with the RAG foundation** (`carenav/models/gateway.py`) — the only module
-that talks to provider APIs. It provides the provider-agnostic `generate()`/`embed()`
-interface, per-call **token + cost capture** (a `CostLedger`), **prompt capture** for
-the PII-leak gate, a per-call **timeout**, and **retry-with-backoff** on transient
-429/5xx. Generation can be stubbed independently of embeddings (`stub_generation`) for
-offline/no-quota runs. Embeddings require a Mistral key; Fireworks powers generation
-and the fine-tuned PII classifier/deployment path.
+`ModelGateway` v1 shipped with the RAG foundation (`carenav/models/gateway.py`). It is
+the only module that talks to provider APIs. It provides the provider-agnostic
+`generate()`/`embed()` interface, per-call token and cost capture (a `CostLedger`),
+prompt capture for the PII-leak gate, a per-call timeout, and retry-with-backoff on
+transient 429/5xx. Generation can be stubbed independently of embeddings
+(`stub_generation`) for offline/no-quota runs. Embeddings require a Mistral key.
+Fireworks powers generation and the fine-tuned PII classifier/deployment path.
 
-**Tiering policy shipped** (`carenav/orchestrator/`): `ConfidenceBreakdown`
-(intent/retrieval/tool/self-eval, weighted) scored against `TAU_HIGH` (urgent) /
-`TAU_LOW`, emergent triage short-circuiting to Tier 3, **at most one** frontier retry,
-and human handoff with a structured packet — matching the pseudocode above. Tier-0
+Tiering policy is shipped in `carenav/orchestrator/`. `ConfidenceBreakdown`
+(intent/retrieval/tool/self-eval, weighted) is scored against `TAU_HIGH` (urgent) /
+`TAU_LOW`, with emergent triage short-circuiting to Tier 3, at most one frontier retry,
+and human handoff with a structured packet. This matches the pseudocode above. Tier-0
 keyword fast paths in the router skip the LLM for unambiguous intents.
-
-## Build order
-
-The tiering + escalation demo is the threshold-sweep chart: small-model coverage vs
-quality vs cost.

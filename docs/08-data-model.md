@@ -22,20 +22,20 @@ Implements spec §5. Lives in `carenav/data/`.
 
 ## Ingestion pipeline
 
-All steps run under `make data`, are **idempotent and scripted**, and assert row
+All steps run under `make data`. They are idempotent and scripted, and assert row
 counts so a fresh clone reproduces the dataset.
 
 | Step | Action | Source → target |
 |---|---|---|
-| 1 | **Generate members/claims/conditions** | Run **real Synthea** (`scripts/run_synthea.sh`, needs Java) → export CSV + FHIR → load into Postgres. Patients become `Member`s (assigned a CareNav plan round-robin); encounters become `Claim`s; `Accumulator`s are derived from claim cost-sharing; SNOMED-coded diagnoses become `Condition`s. Conditions that match a covered KB topic are linked via `kb_topic` so the patient data and the knowledge base line up. There is **no synthetic fallback** — ingest errors if the Synthea CSVs are absent. (The FHIR bundle is a clean on-ramp for any FHIR store, [14](14-deployment-mapping.md).) |
+| 1 | **Generate members/claims/conditions** | Run Synthea (`scripts/run_synthea.sh`, needs Java) → export CSV + FHIR → load into Postgres. Patients become `Member`s (assigned a CareNav plan round-robin); encounters become `Claim`s; `Accumulator`s are derived from claim cost-sharing; SNOMED-coded diagnoses become `Condition`s. Conditions that match a covered KB topic are linked via `kb_topic` so the patient data and the knowledge base line up. There is no synthetic fallback: ingest errors if the Synthea CSVs are absent. The FHIR bundle is an on-ramp for any FHIR store ([14](14-deployment-mapping.md)). |
 | 2 | **Providers** | Download the NPPES monthly file → filter to relevant taxonomies/states → load `Provider`. Build a synthetic `plan_network` join table marking a subset in-network. |
-| 3 | **Benefit rules** | Author a small, plausible benefit table per plan — the **one hand-built artifact**; keep it small and documented. |
+| 3 | **Benefit rules** | Author a small, plausible benefit table per plan. This is the one hand-built artifact; keep it small and documented. |
 | 4 | **KB corpus** | Fetch curated MedlinePlus/CDC pages + openFDA labels + sample SBC PDFs → clean → chunk → embed → load vector store ([07](07-rag.md)). |
 
 ## Idempotency & reproducibility requirement
 
-`make data` on a fresh clone must reproduce the same dataset, with **asserted row
-counts** at each step. Re-running must not duplicate rows. This is what makes the
+`make data` on a fresh clone must reproduce the same dataset, with asserted row
+counts at each step. Re-running must not duplicate rows. This is what makes the
 demo reproducible and the eval deterministic.
 
 ## Stores

@@ -1,13 +1,13 @@
 # CareNav — Documentation
 
-Structured development docs derived from the build spec ([internal/spec.md](../internal/spec.md)).
-Each doc is scoped to a subsystem so it can guide implementation independently.
+Development docs derived from the build spec ([internal/spec.md](../internal/spec.md)).
+Each doc is scoped to one subsystem so it can guide implementation independently.
 
 ## Reading order
 
 | # | Doc | Covers |
 |---|---|---|
-| 00 | [Overview](00-overview.md) | Vision, scope, safety boundary, role mapping |
+| 00 | [Overview](00-overview.md) | Vision, scope, safety boundary |
 | 01 | [Architecture](01-architecture.md) | System diagram, hot/cold path, repo layout |
 | 02 | [Tech Stack & Decisions](02-tech-stack.md) | Stack choices + settled open decisions |
 | 03 | [Orchestrator](03-orchestrator.md) | Typed node pipeline (§4.1) |

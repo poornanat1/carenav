@@ -52,15 +52,17 @@ session store, so the real identifier never travels through graph state or promp
 
 ## Implementation status
 
-**Specialist agents shipped** (`carenav/agents/`): Member/Account, Coverage/Benefit, Claims, and
-Provider-search — each a typed Pydantic in/out contract over Postgres, returning structured
-data and **never calling a model**. Every output carries a completeness signal
-(`complete`/`missing`) feeding `tool_conf` (docs/06). `member_ref → member_id` resolution
-lives in `agents/session.py`. The orchestrator's `plan → tool_exec → reflect` loop
-(`orchestrator/tools.py`) runs the tools a turn needs and wraps their structured facts as
-groundable sources, so benefit/claim/account facts are cited (`[CHUNK:tool:<name>]`) and
-grounded by the same contract as KB chunks. The Triage classifier lives in the orchestrator's
-`route` node (`orchestrator/router.py`).
+Specialist agents are shipped in `carenav/agents/`: Member/Account, Coverage/Benefit,
+Claims, and Provider-search. Each is a typed Pydantic in/out contract over Postgres
+that returns structured data and never calls a model. Every output carries a
+completeness signal (`complete`/`missing`) feeding `tool_conf` (docs/06).
+`member_ref → member_id` resolution lives in `agents/session.py`.
+
+The orchestrator's `plan → tool_exec → reflect` loop (`orchestrator/tools.py`) runs the
+tools a turn needs and wraps their structured facts as groundable sources. Benefit,
+claim, and account facts are cited (`[CHUNK:tool:<name>]`) and grounded by the same
+contract as KB chunks. The Triage classifier lives in the orchestrator's `route` node
+(`orchestrator/router.py`).
 
 ## Triage classifier — special status
 
