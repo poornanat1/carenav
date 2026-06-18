@@ -150,6 +150,40 @@ def test_member_context_required_without_ref(monkeypatch):
     assert r.escalated and r.handoff.reason == "member_context_required"
 
 
+def test_service_code_question_routes_to_claims_not_benefit():
+    """A specific service/procedure code refers to the member's claim line, not the plan
+    benefit schedule. It must run the claims tool (and the member lookup), and must NOT
+    run a benefit lookup that would report 'not found'."""
+    from carenav.orchestrator.tools import plan_tools
+
+    p = plan_tools("more information on Service code 185347001", intent="benefit")
+    assert p.needs_claims is True
+    assert p.needs_benefit is False
+    assert p.needs_member is True
+
+
+def test_claim_word_variants_trigger_claims():
+    from carenav.orchestrator.tools import plan_tools
+
+    for q in ("tell me about my claims", "was my claim paid", "why was this denied"):
+        assert plan_tools(q, intent=None).needs_claims is True, q
+
+
+def test_claims_text_surfaces_referenced_code_first():
+    from carenav.agents.contracts import ClaimRecord, ClaimsOutput
+    from carenav.orchestrator.tools import _claims_text
+
+    claims = [
+        ClaimRecord(claim_id=f"c{i}", service_code=str(100000 + i), status="paid",
+                    billed=10.0, allowed=10.0, paid=10.0, member_responsibility=0.0)
+        for i in range(6)
+    ]
+    # The referenced code is the 6th claim — beyond the first 5 — yet must appear.
+    out = ClaimsOutput(claims=claims, complete=True)
+    text = _claims_text(out, "more information on service code 100005")
+    assert "service code 100005" in text
+
+
 def test_scope_sbc_to_plan_filters_other_plans():
     from carenav.rag.retrieval import _scope_sbc_to_plan
 

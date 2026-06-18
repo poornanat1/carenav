@@ -68,7 +68,14 @@ _DEDUCTIBLE_RE = re.compile(
     r"\bdeductible\b|\bout[- ]of[- ]pocket\b|\boop\b|\bmet (my|the)\b", re.IGNORECASE
 )
 _CLAIM_RE = re.compile(
-    r"\bclaim\b|\bdenied\b|\bdenial\b|\bbilled\b|\bwhy (was|did).*(pay|cover)", re.IGNORECASE
+    r"\bclaims?\b|\bdenied\b|\bdenial\b|\bbilled\b|\bwhy (was|did).*(pay|cover)", re.IGNORECASE
+)
+# A service/procedure code names a specific claim line on the member's account
+# ("more information on service code 185347001"). These reference the member's claims,
+# not the plan's benefit rules, so they route to the claims tool.
+_CLAIM_CODE_RE = re.compile(
+    r"\bservice code\b|\bprocedure code\b|\bclaim (id|number|#)\b|\bcpt\b|\bhcpcs\b|\b\d{6,}\b",
+    re.IGNORECASE,
 )
 _ELIGIBILITY_RE = re.compile(
     r"\beligib|\bcoverage (start|end|date)|\bam i (still )?covered|\bmy plan\b", re.IGNORECASE
@@ -99,18 +106,24 @@ class ToolRun:
 def plan_tools(question: str, intent: str | None) -> ToolPlan:
     """`plan` node: decide which specialist tools this turn requires."""
     p = ToolPlan()
+    # A specific service/procedure/claim code refers to one of the member's claim lines,
+    # not the plan's benefit schedule. Route it to the claims tool and do NOT treat it as
+    # a benefit-coverage question (which would look up a category that doesn't exist and
+    # report "not found").
+    claim_code = bool(_CLAIM_CODE_RE.search(question))
     svc = _SERVICE_RE.search(question)
     if svc:
         p.service_mention = svc.group(0)
-    # Coverage/benefit turns, or any turn naming a service, want the benefit rule.
-    if intent in ("coverage", "benefit") or p.service_mention:
+    # Coverage/benefit turns, or any turn naming a benefit service, want the benefit rule —
+    # unless the turn is about a specific claim code.
+    if (intent in ("coverage", "benefit") or p.service_mention) and not claim_code:
         p.needs_benefit = True
-    if _CLAIM_RE.search(question):
+    if _CLAIM_RE.search(question) or claim_code:
         p.needs_claims = True
     if _DEDUCTIBLE_RE.search(question) or _ELIGIBILITY_RE.search(question):
         p.needs_member = True
-    # A benefit lookup needs the member's plan_id, so it implies a member lookup.
-    if p.needs_benefit:
+    # Both claims and benefit lookups need the member resolved.
+    if p.needs_benefit or p.needs_claims:
         p.needs_member = True
     return p
 
@@ -182,17 +195,30 @@ def _benefit_text(o, requested_service: str | None = None) -> str:
     return f"{mapping}Under this plan, {svc} is {cov} with {cost}.{auth}{note}"
 
 
-def _claims_text(o) -> str:
+def _claim_line(c) -> str:
+    base = (
+        f"Claim {c.claim_id} for service code {c.service_code} is {c.status}: "
+        f"billed ${c.billed:.0f}, plan paid ${c.paid:.0f}, "
+        f"member responsibility ${c.member_responsibility:.0f}"
+    )
+    if c.denial_reason:
+        base += f", denial reason: {c.denial_reason}"
+    return base + "."
+
+
+def _claims_text(o, question: str | None = None) -> str:
     if not o.claims:
         return ""
-    lines = []
-    for c in o.claims[:5]:
-        base = (f"Claim {c.claim_id} ({c.service_code}) is {c.status}: billed ${c.billed:.0f}, "
-                f"member responsibility ${c.member_responsibility:.0f}")
-        if c.denial_reason:
-            base += f", denial reason: {c.denial_reason}"
-        lines.append(base + ".")
-    return " ".join(lines)
+    # If the question names a specific code, surface that claim first so it is always in
+    # the grounded sources even when the member has many claims.
+    code = None
+    if question:
+        m = re.search(r"\b\d{6,}\b", question)
+        code = m.group(0) if m else None
+    matched = [c for c in o.claims if code and c.service_code == code]
+    others = [c for c in o.claims if c not in matched]
+    ordered = matched + others
+    return " ".join(_claim_line(c) for c in ordered[:5])
 
 
 def exec_and_reflect(
@@ -233,7 +259,7 @@ def exec_and_reflect(
         cl = claims_lookup(ClaimsInput(member_ref=member_ref or ""))
         run.outputs["claims_lookup"] = cl
         completes.append(cl.complete)
-        text = _claims_text(cl)
+        text = _claims_text(cl, question)
         if text:
             run.sources.append(_hit("claims_lookup", "Your claims", text))
 
