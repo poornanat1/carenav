@@ -334,8 +334,8 @@ function AssistantBubble({ msg }: { msg: Message }) {
             background: pal.soft,
             border: `1.5px solid ${pal.border}`,
             borderRadius: '3px 10px 10px 10px',
-            padding: '16px',
-            maxWidth: 540,
+            padding: '16px 20px',
+            maxWidth: 680,
           }}
         >
           {isEmergent && (
@@ -429,8 +429,8 @@ function AssistantBubble({ msg }: { msg: Message }) {
           background: 'var(--cn-card-strong)',
           border: isUrgent ? '1px solid var(--cn-warn-border)' : '1px solid var(--cn-border)',
           borderRadius: '3px 10px 10px 10px',
-          padding: '14px 16px',
-          maxWidth: 620,
+          padding: '16px 20px',
+          maxWidth: 800,
           boxShadow: 'var(--cn-shadow)',
         }}
       >
@@ -589,7 +589,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
                     color: 'var(--cn-card-strong)',
                     borderRadius: '10px 3px 10px 10px',
                     padding: '10px 15px',
-                    maxWidth: 440,
+                    maxWidth: 560,
                     fontSize: 14, fontFamily: 'var(--font-sans)',
                     fontWeight: 400, lineHeight: 1.55,
                   }}

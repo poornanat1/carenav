@@ -28,7 +28,7 @@ body {
 }
 
 .chat-stage {
-  width: min(100%, 900px);
+  width: min(100%, 1000px);
   margin: 0 auto;
 }
 
