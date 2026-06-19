@@ -340,6 +340,30 @@ def test_contextualize_uses_stubbed_rewrite():
     assert out == "What are the side effects of albuterol?"
 
 
+def test_contextualize_rejects_added_coverage_framing():
+    """A self-contained educational question must not get plan/coverage framing bolted on
+    from a prior coverage turn — that over-rewrite misroutes it to the member's coverage
+    path. The guardrail discards such a rewrite and keeps the original."""
+    from carenav.orchestrator.contextualize import Turn, contextualize_question
+
+    class OverRewriteGateway:
+        def generate(self, *_args, **_kwargs):
+            class Response:
+                text = (
+                    "What should I know about high cholesterol and its "
+                    "coverage under my CareNav Gold plan?"
+                )
+
+            return Response()
+
+    history = [
+        Turn("user", "What cardiology care is covered under my plan?"),
+        Turn("assistant", "CareNav Gold covers cardiology with a copay; MRI needs prior auth."),
+    ]
+    q = "What should I know about high cholesterol?"
+    assert contextualize_question(q, history, OverRewriteGateway()) == q
+
+
 @requires_db
 @requires_generation
 def test_followup_resolves_subject_from_history():

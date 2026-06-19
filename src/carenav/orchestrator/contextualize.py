@@ -42,10 +42,44 @@ Conversation so far:
 
 New question: {question}
 
-If the new question depends on the conversation (it refers to "it", "that", "the side \
-effects", "what about ...", or otherwise omits its subject), rewrite it as a single \
-self-contained question that names the subject explicitly. If the new question already \
-stands on its own, return it unchanged. Output ONLY the question, nothing else."""
+Rewrite ONLY to resolve references the question cannot stand without — pronouns ("it", \
+"that", "they"), elisions ("the side effects?", "what about dosage?"), or a missing \
+subject. When you rewrite, name the omitted subject and change NOTHING else.
+
+Do NOT add scope, framing, or topics the new question did not ask about. In particular, \
+never bolt on the previous turn's topic — if the earlier turn was about plan coverage, \
+deductibles, or benefits, do NOT add "under my plan", "coverage", "my CareNav plan", or \
+similar to a question that did not mention them. A question that already names its own \
+subject (e.g. "What should I know about high cholesterol?") ALREADY stands on its own — \
+return it completely unchanged.
+
+Output ONLY the question, nothing else."""
+
+
+# Profile/coverage framing the rewrite must not introduce. If the model bolts any of these
+# onto a question that didn't already contain them, we discard the rewrite — that framing
+# drags an educational question into the member's coverage path and misroutes the turn.
+_FRAMING_TERMS = (
+    "my plan",
+    "my carenav",
+    "coverage",
+    "covered",
+    "deductible",
+    "copay",
+    "co-pay",
+    "coinsurance",
+    "out-of-pocket",
+    "benefit",
+    "in-network",
+    "prior auth",
+)
+
+
+def _introduces_framing(original: str, rewritten: str) -> bool:
+    """True if the rewrite added coverage/plan framing the original question lacked."""
+    orig_low = original.lower()
+    rew_low = rewritten.lower()
+    return any(term in rew_low and term not in orig_low for term in _FRAMING_TERMS)
 
 
 def _format_history(history: list[Turn]) -> str:
@@ -81,5 +115,10 @@ def contextualize_question(
         return question
     rewritten = raw.strip().strip("\"'`").splitlines()[0].strip() if raw.strip() else ""
     if not rewritten or len(rewritten) > _MAX_QUESTION_LEN:
+        return question
+    # Reject a rewrite that bolts on coverage/plan framing the original lacked — that
+    # over-rewrite (e.g. adding "coverage under my CareNav Gold plan") misroutes an
+    # educational question to the member's coverage path. Fail open to the original.
+    if _introduces_framing(question, rewritten):
         return question
     return rewritten
