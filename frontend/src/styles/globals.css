@@ -27,11 +27,20 @@ body {
   }
 }
 
+.chat-stage {
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
 /* Tighter chat gutters on phones so message bubbles get more usable width. */
 @media (max-width: 768px) {
   .chat-scroll {
     padding-left: 14px !important;
     padding-right: 14px !important;
+  }
+
+  .chat-stage {
+    width: 100%;
   }
 }
 

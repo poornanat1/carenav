@@ -20,7 +20,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
       style={{
         borderBottom: '1px solid var(--cn-border)',
         background: 'var(--cn-panel)',
-        padding: '10px 12px',
+        padding: '12px 16px',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -63,23 +63,24 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               key={m.id}
               onClick={() => onSelect(m)}
               style={{
-                width: 292,
-                minWidth: 292,
+                width: 300,
+                minWidth: 300,
                 border: isSelected
-                  ? '1.5px solid var(--cn-accent)'
+                  ? '1.5px solid var(--cn-info)'
                   : '1.5px solid var(--cn-border)',
-                background: isSelected ? 'var(--cn-accent-soft)' : 'var(--cn-card)',
+                background: isSelected ? 'var(--cn-info-soft)' : 'var(--cn-card-strong)',
                 borderRadius: 7,
-                padding: '9px 12px',
+                padding: '11px 13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s',
                 scrollSnapAlign: 'start',
+                boxShadow: isSelected ? 'none' : 'var(--cn-shadow)',
               }}
               onMouseEnter={e => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = 'var(--cn-accent)';
-                  e.currentTarget.style.background = 'var(--cn-card-strong)';
+                  e.currentTarget.style.borderColor = 'var(--cn-info)';
+                  e.currentTarget.style.background = 'var(--cn-card)';
                 }
               }}
               onMouseLeave={e => {
@@ -103,7 +104,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               <div
                 style={{
                   fontSize: 10,
-                  color: isSelected ? 'var(--cn-accent-strong)' : 'var(--cn-muted)',
+                  color: isSelected ? 'var(--cn-info)' : 'var(--cn-muted)',
                   fontFamily: 'var(--font-mono)',
                   marginTop: 2,
                 }}

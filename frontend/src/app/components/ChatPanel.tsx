@@ -415,9 +415,9 @@ function AssistantBubble({ msg }: { msg: Message }) {
             }}
           >
             <MetaPill
-              bg={r.grounded ? 'var(--cn-accent-soft)' : 'var(--cn-surface)'}
-              color={r.grounded ? 'var(--cn-accent-strong)' : 'var(--cn-subtle)'}
-              border={r.grounded ? 'rgba(31,122,90,0.25)' : 'var(--cn-border)'}
+              bg={r.grounded ? 'var(--cn-info-soft)' : 'var(--cn-surface)'}
+              color={r.grounded ? 'var(--cn-info)' : 'var(--cn-subtle)'}
+              border={r.grounded ? 'rgba(39,107,143,0.25)' : 'var(--cn-border)'}
             >
               <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
                 {r.grounded ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
@@ -430,9 +430,9 @@ function AssistantBubble({ msg }: { msg: Message }) {
             </MetaPill>
 
             <MetaPill
-              bg={r.confidence >= 0.8 ? 'var(--cn-accent-soft)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.1)' : 'var(--cn-danger-soft)'}
-              color={r.confidence >= 0.8 ? 'var(--cn-accent)' : r.confidence >= 0.65 ? 'var(--cn-warn)' : 'var(--cn-danger)'}
-              border={r.confidence >= 0.8 ? 'rgba(31,122,90,0.2)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.22)' : 'rgba(180,35,47,0.2)'}
+              bg={r.confidence >= 0.8 ? 'var(--cn-info-soft)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.1)' : 'var(--cn-danger-soft)'}
+              color={r.confidence >= 0.8 ? 'var(--cn-info)' : r.confidence >= 0.65 ? 'var(--cn-warn)' : 'var(--cn-danger)'}
+              border={r.confidence >= 0.8 ? 'rgba(39,107,143,0.22)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.22)' : 'rgba(180,35,47,0.2)'}
             >
               {Math.round(r.confidence * 100)}% confidence
             </MetaPill>
@@ -481,36 +481,38 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   if (messages.length === 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--cn-bg)' }}>
-        <div style={{ marginBottom: 10 }}>
-          <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
-            Suggested for {member.name}
-          </span>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--cn-bg)' }}>
+        <div className="chat-stage" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+          <div style={{ marginBottom: 10 }}>
+            <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+              Suggested for {member.name}
+            </span>
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center', maxWidth: 560 }}>
+            {suggestions.map((sq, i) => {
+              const s = INTENT_STYLE[sq.intent] ?? INTENT_STYLE.benefits;
+              return (
+                <button
+                  key={i}
+                  onClick={() => onSuggestedClick(sq)}
+                  style={{
+                    border: `1px solid ${s.border}`, background: s.bg, color: s.text,
+                    borderRadius: 16, padding: '6px 14px',
+                    fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 400,
+                    cursor: 'pointer', transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.65')}
+                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                >
+                  {sq.label}
+                </button>
+              );
+            })}
+          </div>
+          <p style={{ marginTop: 18, fontSize: 11, color: 'var(--cn-subtle)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
+            or type a question below
+          </p>
         </div>
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 7, justifyContent: 'center', maxWidth: 560 }}>
-          {suggestions.map((sq, i) => {
-            const s = INTENT_STYLE[sq.intent] ?? INTENT_STYLE.benefits;
-            return (
-              <button
-                key={i}
-                onClick={() => onSuggestedClick(sq)}
-                style={{
-                  border: `1px solid ${s.border}`, background: s.bg, color: s.text,
-                  borderRadius: 16, padding: '6px 14px',
-                  fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 400,
-                  cursor: 'pointer', transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={e => (e.currentTarget.style.opacity = '0.65')}
-                onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
-              >
-                {sq.label}
-              </button>
-            );
-          })}
-        </div>
-        <p style={{ marginTop: 18, fontSize: 11, color: 'var(--cn-subtle)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>
-          or type a question below
-        </p>
       </div>
     );
   }
@@ -520,32 +522,34 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
       className="chat-scroll"
       style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', background: 'var(--cn-bg)', scrollbarWidth: 'none' }}
     >
-      {messages.map(msg => {
-        if (msg.role === 'user') {
-          return (
-            <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 22 }}>
-              <div
-                style={{
-                  background: 'var(--cn-ink)',
-                  color: 'var(--cn-card-strong)',
-                  borderRadius: '10px 3px 10px 10px',
-                  padding: '10px 15px',
-                  maxWidth: 440,
-                  fontSize: 14, fontFamily: 'var(--font-sans)',
-                  fontWeight: 400, lineHeight: 1.55,
-                }}
-              >
-                {msg.content}
+      <div className="chat-stage">
+        {messages.map(msg => {
+          if (msg.role === 'user') {
+            return (
+              <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 22 }}>
+                <div
+                  style={{
+                    background: 'var(--cn-ink)',
+                    color: 'var(--cn-card-strong)',
+                    borderRadius: '10px 3px 10px 10px',
+                    padding: '10px 15px',
+                    maxWidth: 440,
+                    fontSize: 14, fontFamily: 'var(--font-sans)',
+                    fontWeight: 400, lineHeight: 1.55,
+                  }}
+                >
+                  {msg.content}
+                </div>
+                <span style={{ fontSize: 9, color: 'var(--cn-subtle)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
+                  {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                </span>
               </div>
-              <span style={{ fontSize: 9, color: 'var(--cn-subtle)', fontFamily: 'var(--font-mono)', marginTop: 4 }}>
-                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-              </span>
-            </div>
-          );
-        }
-        return <AssistantBubble key={msg.id} msg={msg} />;
-      })}
-      <div ref={bottomRef} />
+            );
+          }
+          return <AssistantBubble key={msg.id} msg={msg} />;
+        })}
+        <div ref={bottomRef} />
+      </div>
     </div>
   );
 }

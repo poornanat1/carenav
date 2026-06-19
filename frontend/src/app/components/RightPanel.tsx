@@ -19,9 +19,18 @@ type Props = {
 
 function Label({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 8 }}>
+    <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 9 }}>
       {children}
     </div>
+  );
+}
+
+function Section({ children, title }: { children: React.ReactNode; title: string }) {
+  return (
+    <section style={{ marginBottom: 18 }}>
+      <Label>{title}</Label>
+      {children}
+    </section>
   );
 }
 
@@ -34,11 +43,34 @@ function Row({ label, value, mono = false }: { label: string; value: string; mon
   );
 }
 
+function DetailRow({
+  children,
+  marker = 'var(--cn-info)',
+}: {
+  children: React.ReactNode;
+  marker?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '6px 0', borderBottom: '1px solid var(--cn-border-soft)' }}>
+      <div style={{ width: 4, height: 4, borderRadius: '50%', background: marker, flexShrink: 0, marginTop: 7 }} />
+      <div style={{ minWidth: 0, flex: 1 }}>{children}</div>
+    </div>
+  );
+}
+
+function TopicTag({ children }: { children: React.ReactNode }) {
+  return (
+    <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-info)', background: 'var(--cn-info-soft)', border: '1px solid rgba(39,107,143,0.22)', borderRadius: 4, padding: '2px 6px' }}>
+      {children}
+    </span>
+  );
+}
+
 function Bar({ used, total, filled }: { used: number; total: number; filled: boolean }) {
   const pct = Math.min(100, (used / total) * 100);
   return (
     <div style={{ height: 3, background: 'var(--cn-border)', borderRadius: 2, overflow: 'hidden', marginTop: 3 }}>
-      <div style={{ width: `${pct}%`, height: '100%', background: filled ? 'var(--cn-accent)' : 'var(--cn-subtle)', borderRadius: 2, transition: 'width 0.4s' }} />
+      <div style={{ width: `${pct}%`, height: '100%', background: filled ? 'var(--cn-info)' : 'var(--cn-subtle)', borderRadius: 2, transition: 'width 0.4s' }} />
     </div>
   );
 }
@@ -70,12 +102,11 @@ function MemberTab({ member }: { member: Member | null }) {
         </div>
       </div>
 
-      <div style={{ marginBottom: 16 }}>
-        <Label>Cost sharing</Label>
+      <Section title="Cost sharing">
         <div style={{ marginBottom: 9 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 1 }}>
             <span style={{ fontSize: 11, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)' }}>Deductible</span>
-            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: deductibleMet ? 'var(--cn-accent-strong)' : 'var(--cn-text)' }}>
+            <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color: deductibleMet ? 'var(--cn-info)' : 'var(--cn-text)' }}>
               ${detail.deductible.used.toLocaleString()} / ${detail.deductible.total.toLocaleString()}{deductibleMet && ' ✓'}
             </span>
           </div>
@@ -90,47 +121,41 @@ function MemberTab({ member }: { member: Member | null }) {
           </div>
           <Bar used={detail.oop.used} total={detail.oop.total} filled={false} />
         </div>
-      </div>
+      </Section>
 
-      <div style={{ marginBottom: 16 }}>
-        <Label>Clinical profile</Label>
+      <Section title="Clinical profile">
         {(detail.conditions ?? []).map((condition, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5 }}>
-            <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--cn-info)', flexShrink: 0, marginTop: 5 }} />
-            <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>{condition}</span>
-          </div>
+          <DetailRow key={i}>
+            <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45 }}>{condition}</span>
+          </DetailRow>
         ))}
         {(detail.kbTopics ?? []).length > 0 && (
-          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 8 }}>
+          <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap', marginTop: 9 }}>
             {(detail.kbTopics ?? []).map(topic => (
-              <span key={topic} style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-info)', background: 'var(--cn-info-soft)', border: '1px solid rgba(39,107,143,0.2)', borderRadius: 4, padding: '2px 6px' }}>
-                {topic}
-              </span>
+              <TopicTag key={topic}>{topic}</TopicTag>
             ))}
           </div>
         )}
-      </div>
+      </Section>
 
-      <div style={{ marginBottom: 16 }}>
-        <Label>Active medications</Label>
+      <Section title="Active medications">
         {detail.medications.map((med, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: 7, marginBottom: 5 }}>
-            <div style={{ width: 4, height: 4, borderRadius: '50%', background: 'var(--cn-accent)', flexShrink: 0, marginTop: 5 }} />
-            <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400 }}>{med}</span>
-          </div>
+          <DetailRow key={i} marker="var(--cn-muted)">
+            <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45 }}>{med}</span>
+          </DetailRow>
         ))}
-      </div>
+      </Section>
 
-      <div style={{ marginBottom: 16 }}>
-        <Label>Recent claims</Label>
+      <Section title="Recent claims">
         {detail.recentClaims.map((claim, i) => (
-          <div key={i} style={{ marginBottom: 5, padding: '8px 10px', background: 'var(--cn-card)', borderRadius: 6, border: '1px solid var(--cn-border-soft)' }}>
+          <div key={i} style={{ padding: '7px 0', borderBottom: '1px solid var(--cn-border-soft)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
               <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, flex: 1 }}>{claim.description}</span>
               <span style={{
                 fontSize: 9, fontFamily: 'var(--font-mono)', padding: '2px 5px', borderRadius: 3, marginLeft: 6, flexShrink: 0,
-                background: claim.status === 'Paid' ? 'var(--cn-accent-soft)' : claim.status === 'Processing' ? 'var(--cn-info-soft)' : 'var(--cn-danger-soft)',
-                color: claim.status === 'Paid' ? 'var(--cn-accent)' : claim.status === 'Processing' ? 'var(--cn-info)' : 'var(--cn-danger)',
+                background: claim.status === 'Paid' ? 'var(--cn-surface)' : claim.status === 'Processing' ? 'var(--cn-info-soft)' : 'var(--cn-danger-soft)',
+                color: claim.status === 'Paid' ? 'var(--cn-muted)' : claim.status === 'Processing' ? 'var(--cn-info)' : 'var(--cn-danger)',
+                border: '1px solid var(--cn-border-soft)',
               }}>
                 {claim.status}
               </span>
@@ -141,13 +166,12 @@ function MemberTab({ member }: { member: Member | null }) {
             </div>
           </div>
         ))}
-      </div>
+      </Section>
 
-      <div>
-        <Label>Recommended providers</Label>
+      <Section title="Recommended providers">
         {detail.recentProviders.slice(0, 2).map((p, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
-            <div style={{ width: 26, height: 26, borderRadius: '50%', border: '1px solid var(--cn-border)', background: 'var(--cn-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--cn-border-soft)' }}>
+            <div style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--cn-border)', background: 'var(--cn-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <User size={12} color="var(--cn-muted)" />
             </div>
             <div>
@@ -156,7 +180,7 @@ function MemberTab({ member }: { member: Member | null }) {
             </div>
           </div>
         ))}
-      </div>
+      </Section>
     </div>
   );
 }
@@ -308,7 +332,7 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
             onClick={() => onTabChange(tab.id)}
             style={{
               flex: 1, padding: mobile ? '13px 6px' : '10px 6px', background: 'none', border: 'none',
-              borderBottom: activeTab === tab.id ? '1.5px solid var(--cn-accent)' : '1.5px solid transparent',
+              borderBottom: activeTab === tab.id ? '1.5px solid var(--cn-info)' : '1.5px solid transparent',
               color: activeTab === tab.id ? 'var(--cn-ink)' : 'var(--cn-muted)',
               fontSize: mobile ? 13 : 11, fontFamily: 'var(--font-mono)', fontWeight: activeTab === tab.id ? 500 : 400,
               cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1, letterSpacing: '0.02em',

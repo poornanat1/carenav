@@ -75,32 +75,35 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
       )}
 
       {member && suggestions.length > 0 && (
-        <div style={{ padding: '9px 14px 0', display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
-          {suggestions.map((sq, i) => {
-            const s = INTENT_STYLE[sq.intent] ?? INTENT_STYLE.benefits;
-            return (
-              <button
-                key={i}
-                onClick={() => { setValue(sq.question); textareaRef.current?.focus(); }}
-                disabled={loading}
-                style={{
-                  border: `1px solid ${s.border}`, background: s.bg, color: s.text,
-                  borderRadius: 13, padding: '4px 11px',
-                  fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400,
-                  cursor: loading ? 'not-allowed' : 'pointer',
-                  whiteSpace: 'nowrap', opacity: loading ? 0.4 : 1, transition: 'opacity 0.15s',
-                }}
-                onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.65'; }}
-                onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1'; }}
-              >
-                {sq.label}
-              </button>
-            );
-          })}
+        <div style={{ padding: '9px 14px 0' }}>
+          <div className="chat-stage" style={{ display: 'flex', gap: 6, overflowX: 'auto', scrollbarWidth: 'none' }}>
+            {suggestions.map((sq, i) => {
+              const s = INTENT_STYLE[sq.intent] ?? INTENT_STYLE.benefits;
+              return (
+                <button
+                  key={i}
+                  onClick={() => { setValue(sq.question); textareaRef.current?.focus(); }}
+                  disabled={loading}
+                  style={{
+                    border: `1px solid ${s.border}`, background: s.bg, color: s.text,
+                    borderRadius: 13, padding: '4px 11px',
+                    fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400,
+                    cursor: loading ? 'not-allowed' : 'pointer',
+                    whiteSpace: 'nowrap', opacity: loading ? 0.4 : 1, transition: 'opacity 0.15s',
+                  }}
+                  onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.65'; }}
+                  onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1'; }}
+                >
+                  {sq.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 8, padding: '10px 14px' }}>
+      <div style={{ padding: '10px 14px' }}>
+        <div className="chat-stage" style={{ display: 'flex', alignItems: 'flex-end', gap: 8 }}>
         <textarea
           ref={textareaRef}
           value={value}
@@ -143,6 +146,7 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
         >
           <Send size={14} color={canSend ? '#ffffff' : 'var(--cn-subtle)'} />
         </button>
+        </div>
       </div>
     </div>
   );
