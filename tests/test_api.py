@@ -34,6 +34,41 @@ def test_turn_validates_empty_question():
     assert r.status_code == 422  # pydantic min_length
 
 
+def test_kb_serves_internal_doc_markdown():
+    r = client.get("/kb/sbc-carenav-gold")
+    assert r.status_code == 200
+    body = r.json()
+    assert body["doc_id"] == "sbc-carenav-gold"
+    assert body["source_url"] is None  # internal doc, rendered in-app
+    assert "Summary of Benefits and Coverage" in body["body"]
+
+
+def test_kb_unknown_doc_404():
+    assert client.get("/kb/does-not-exist").status_code == 404
+
+
+def test_internal_sbc_docs_have_no_source_url():
+    # The on-disk corpus is authoritative: internal SBC docs must not carry an external URL,
+    # so their citations render in-app instead of linking out.
+    from carenav.api.kb import corpus_source_url, is_known_doc
+
+    for doc_id in (
+        "sbc-carenav-gold",
+        "sbc-carenav-bronze",
+        "sbc-carenav-silver",
+        "cms-prior-authorization",
+        "cms-preventive-vs-diagnostic",
+    ):
+        assert is_known_doc(f"{doc_id}::000")
+        assert corpus_source_url(f"{doc_id}::000") is None
+
+
+def test_external_docs_keep_source_url():
+    from carenav.api.kb import corpus_source_url
+
+    assert corpus_source_url("openfda-albuterol::000")  # MedlinePlus URL preserved
+
+
 def test_profile_router_handles_accumulators_without_model():
     summary = MemberSummary(
         id="member-1",

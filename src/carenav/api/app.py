@@ -9,7 +9,7 @@ from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
 from carenav.agents import create_demo_member_ref
-from carenav.api.kb import kb_doc
+from carenav.api.kb import corpus_source_url, is_known_doc, kb_doc
 from carenav.api.members import (
     list_member_summaries,
     provider_recommendations_for_member,
@@ -88,6 +88,18 @@ def _citation_excerpts(result: TurnResult) -> dict[str, str]:
     return excerpts
 
 
+def _citation_source_url(c) -> str | None:
+    """Source URL to expose for a citation.
+
+    The on-disk corpus is authoritative for corpus docs: internal docs return None (so the
+    UI renders them in-app) even if the live DB still holds a stale external URL. Non-corpus
+    citations (tool sources) keep their own value.
+    """
+    if is_known_doc(c.chunk_id):
+        return corpus_source_url(c.chunk_id)
+    return c.source_url or None
+
+
 def _serialize_turn(result: TurnResult) -> TurnResponse:
     excerpts = _citation_excerpts(result)
     return TurnResponse(
@@ -99,7 +111,7 @@ def _serialize_turn(result: TurnResult) -> TurnResponse:
             CitationOut(
                 chunk_id=c.chunk_id,
                 title=c.title,
-                source_url=c.source_url or None,
+                source_url=_citation_source_url(c),
                 excerpt=excerpts.get(c.chunk_id),
             )
             for c in result.citations

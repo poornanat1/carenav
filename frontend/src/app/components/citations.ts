@@ -24,6 +24,20 @@ export function sourceKind(citation: Citation) {
   return 'knowledge base';
 }
 
+// KB chunk ids are "{doc_id}::{ordinal}". Tool/profile citations (e.g. "tool:provider:..")
+// are not KB docs and have no renderable markdown.
+export function citationDocId(citation: Citation): string | null {
+  const id = citation.chunk_id;
+  if (id.startsWith('tool:')) return null;
+  const sep = id.indexOf('::');
+  return sep > 0 ? id.slice(0, sep) : null;
+}
+
+// An internal doc we render in-app: it has a KB doc id and no external source_url.
+export function isInternalDoc(citation: Citation): boolean {
+  return !citation.source_url && citationDocId(citation) !== null;
+}
+
 export function citationSourceKey(citation: Citation) {
   if (!citation.source_url) return `chunk:${citation.chunk_id}`;
   return `source:${citation.source_url}::${citation.title}`;

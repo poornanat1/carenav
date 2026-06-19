@@ -1,8 +1,9 @@
-import React from 'react';
-import { ExternalLink, FileText, Cpu, User, X } from 'lucide-react';
+import React, { useState } from 'react';
+import { ExternalLink, FileText, Cpu, User, X, BookOpen } from 'lucide-react';
 import type { Citation, Member, Message, TurnResponse } from './types';
 import { detailFor } from './api';
-import { groupCitations, sourceKind, sourceLabel } from './citations';
+import { citationDocId, groupCitations, isInternalDoc, sourceKind, sourceLabel } from './citations';
+import { KbDocViewer } from './KbDocViewer';
 
 type Tab = 'member' | 'evidence' | 'system';
 
@@ -161,6 +162,8 @@ function MemberTab({ member }: { member: Member | null }) {
 }
 
 function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
+  const [openDocId, setOpenDocId] = useState<string | null>(null);
+
   if (!lastResponse) return (
     <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
       <p style={{ fontSize: 12, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, textAlign: 'center' }}>No response yet. Send a message to see evidence.</p>
@@ -214,6 +217,15 @@ function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
               >
                 <ExternalLink size={9} /> source
               </a>
+            ) : isInternalDoc(cit) ? (
+              <button
+                onClick={() => setOpenDocId(citationDocId(cit))}
+                style={{ display: 'flex', alignItems: 'center', gap: 3, fontSize: 10, color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', cursor: 'pointer', background: 'none', padding: '2px 7px', borderRadius: 4, border: '1px solid var(--cn-border)', transition: 'color 0.15s' }}
+                onMouseEnter={e => (e.currentTarget.style.color = 'var(--cn-ink)')}
+                onMouseLeave={e => (e.currentTarget.style.color = 'var(--cn-muted)')}
+              >
+                <BookOpen size={9} /> view doc
+              </button>
             ) : (
               <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-subtle)' }}>internal</span>
             )}
@@ -221,6 +233,7 @@ function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | null }) {
         </div>
         );
       })}
+      {openDocId && <KbDocViewer docId={openDocId} onClose={() => setOpenDocId(null)} />}
     </div>
   );
 }

@@ -74,6 +74,19 @@ export function detailFor(member: Member): MemberDetail | null {
   return MEMBER_DETAILS[member.id] ?? null;
 }
 
+export type KbDoc = {
+  doc_id: string;
+  title: string;
+  source_type: string;
+  source_url?: string | null;
+  last_reviewed?: string | null;
+  body: string;
+};
+
+export async function getKbDoc(docId: string): Promise<KbDoc> {
+  return request<KbDoc>(`/kb/${encodeURIComponent(docId)}`);
+}
+
 export type HistoryTurn = { role: 'user' | 'assistant'; content: string };
 
 export async function callTurn(
