@@ -357,7 +357,7 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
         boxShadow: '0 -10px 40px rgba(23,33,27,0.2)',
       }
     : {
-        width: 316, flexShrink: 0, borderLeft: '1px solid var(--cn-border)',
+        width: 348, flexShrink: 0, borderLeft: '1px solid var(--cn-border)',
         background: 'var(--cn-panel)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       };
 
