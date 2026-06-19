@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ExternalLink, FileText, Cpu, User, X, BookOpen } from 'lucide-react';
+import { ExternalLink, FileText, Cpu, User, X, BookOpen, ChevronDown } from 'lucide-react';
 import type { Citation, Member, Message, TurnResponse } from './types';
 import { detailFor } from './api';
 import { citationDocId, groupCitations, isInternalDoc, sourceKind, sourceLabel } from './citations';
@@ -25,11 +25,49 @@ function Label({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Section({ children, title }: { children: React.ReactNode; title: string }) {
+function Section({
+  children,
+  title,
+  collapsible = false,
+  defaultOpen = true,
+  count,
+}: {
+  children: React.ReactNode;
+  title: string;
+  collapsible?: boolean;
+  defaultOpen?: boolean;
+  count?: number;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  if (!collapsible) {
+    return (
+      <section style={{ marginBottom: 20 }}>
+        <Label>{title}</Label>
+        {children}
+      </section>
+    );
+  }
+  const heading = count !== undefined ? `${title} · ${count}` : title;
   return (
-    <section style={{ marginBottom: 18 }}>
-      <Label>{title}</Label>
-      {children}
+    <section style={{ marginBottom: 20 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%',
+          background: 'none', border: 'none', padding: 0, marginBottom: open ? 9 : 0, cursor: 'pointer',
+        }}
+      >
+        <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+          {heading}
+        </span>
+        <ChevronDown
+          size={13}
+          color="var(--cn-subtle)"
+          style={{ transform: open ? 'rotate(0deg)' : 'rotate(-90deg)', transition: 'transform 0.15s' }}
+        />
+      </button>
+      {open && children}
     </section>
   );
 }
@@ -126,7 +164,12 @@ function MemberTab({ member }: { member: Member | null }) {
       <Section title="Clinical profile">
         {(detail.conditions ?? []).map((condition, i) => (
           <DetailRow key={i}>
-            <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45 }}>{condition}</span>
+            <span
+              title={condition}
+              style={{ display: 'block', fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+            >
+              {condition}
+            </span>
           </DetailRow>
         ))}
         {(detail.kbTopics ?? []).length > 0 && (
@@ -138,7 +181,7 @@ function MemberTab({ member }: { member: Member | null }) {
         )}
       </Section>
 
-      <Section title="Active medications">
+      <Section title="Active medications" collapsible defaultOpen={false} count={detail.medications.length}>
         {detail.medications.map((med, i) => (
           <DetailRow key={i} marker="var(--cn-muted)">
             <span style={{ fontSize: 11, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45 }}>{med}</span>
@@ -146,7 +189,7 @@ function MemberTab({ member }: { member: Member | null }) {
         ))}
       </Section>
 
-      <Section title="Recent claims">
+      <Section title="Recent claims" collapsible defaultOpen={false} count={detail.recentClaims.length}>
         {detail.recentClaims.map((claim, i) => (
           <div key={i} style={{ padding: '7px 0', borderBottom: '1px solid var(--cn-border-soft)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -168,7 +211,7 @@ function MemberTab({ member }: { member: Member | null }) {
         ))}
       </Section>
 
-      <Section title="Recommended providers">
+      <Section title="Recommended providers" collapsible defaultOpen={false} count={Math.min(2, detail.recentProviders.length)}>
         {detail.recentProviders.slice(0, 2).map((p, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '7px 0', borderBottom: '1px solid var(--cn-border-soft)' }}>
             <div style={{ width: 24, height: 24, borderRadius: '50%', border: '1px solid var(--cn-border)', background: 'var(--cn-card)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

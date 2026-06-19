@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { ShieldAlert, CheckCircle2, AlertCircle, Phone, ExternalLink } from 'lucide-react';
-import type { Citation, Message, Member, SuggestedQuestion } from './types';
+import type { Citation, Message, Member, SuggestedQuestion, TurnResponse } from './types';
 import { citationRefMap, citationTooltip, groupCitations, sourceLabel } from './citations';
 
 type Props = {
@@ -30,6 +30,23 @@ const HANDOFF_REASON_COPY: Record<string, string> = {
 
 function handoffReasonText(reason: string): string {
   return HANDOFF_REASON_COPY[reason] ?? reason.replace(/_/g, ' ');
+}
+
+// Severity tier for an answer, derived only from machine-readable response signals
+// (never from the answer text). Drives the alert treatment so important answers are
+// visually unmistakable from routine ones:
+//   emergent  — medical emergency; strongest red treatment + 911.
+//   escalated — handed off for a non-emergency reason; amber caution, not full red.
+//   urgent    — time-sensitive but still answered; amber banner atop a normal bubble.
+//   none      — routine answer.
+type Severity = 'emergent' | 'escalated' | 'urgent' | 'none';
+
+function severityOf(r: TurnResponse): Severity {
+  const isEmergent = r.safety_flag === 'emergent' || r.handoff?.reason === 'emergent_safety';
+  if (isEmergent) return 'emergent';
+  if (r.escalated) return 'escalated';
+  if (r.safety_flag === 'urgent') return 'urgent';
+  return 'none';
 }
 
 function LoadingDots() {
@@ -295,35 +312,61 @@ function AssistantBubble({ msg }: { msg: Message }) {
   }
 
   if (r?.escalated) {
-    const isEmergent = r.safety_flag === 'emergent' || r.handoff?.reason === 'emergent_safety';
+    const isEmergent = severityOf(r) === 'emergent';
+    // Emergent → red (top of the scale). Non-emergent escalation → amber caution, so the
+    // two severity tiers are visually distinct instead of both reading as full red.
+    const pal = isEmergent
+      ? {
+          soft: 'var(--cn-danger-soft)', strong: 'var(--cn-danger)',
+          border: 'rgba(180,35,47,0.28)', iconBg: 'rgba(180,35,47,0.1)',
+          iconBorder: 'rgba(180,35,47,0.25)', reasonBorder: 'rgba(180,35,47,0.16)',
+        }
+      : {
+          soft: 'var(--cn-warn-soft)', strong: 'var(--cn-warn)',
+          border: 'var(--cn-warn-border)', iconBg: 'rgba(149,106,22,0.1)',
+          iconBorder: 'rgba(149,106,22,0.25)', reasonBorder: 'rgba(149,106,22,0.16)',
+        };
     return (
       <div style={{ marginBottom: 22 }}>
-        <div style={{ ...labelStyle, color: 'var(--cn-danger)' }}>CareNav · escalation</div>
+        <div style={{ ...labelStyle, color: pal.strong }}>CareNav · escalation</div>
         <div
           style={{
-            background: 'var(--cn-danger-soft)',
-            border: '1.5px solid rgba(180,35,47,0.28)',
+            background: pal.soft,
+            border: `1.5px solid ${pal.border}`,
             borderRadius: '3px 10px 10px 10px',
             padding: '16px',
             maxWidth: 540,
           }}
         >
+          {isEmergent && (
+            <div
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 5,
+                background: 'var(--cn-danger)', color: 'white', borderRadius: 5,
+                padding: '3px 9px', marginBottom: 12,
+                fontSize: 10, fontFamily: 'var(--font-mono)', fontWeight: 500,
+                letterSpacing: '0.06em',
+              }}
+            >
+              <AlertCircle size={11} /> URGENT — EMERGENCY
+            </div>
+          )}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12, marginBottom: 14 }}>
             <div
               style={{
                 width: 32, height: 32, borderRadius: 7,
-                background: 'rgba(180,35,47,0.1)',
-                border: '1px solid rgba(180,35,47,0.25)',
+                background: pal.iconBg,
+                border: `1px solid ${pal.iconBorder}`,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
               }}
             >
-              <ShieldAlert size={16} color="var(--cn-danger)" />
+              <ShieldAlert size={16} color={pal.strong} />
             </div>
             <div>
               <div style={{ fontWeight: 700, fontSize: 14, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>
-                {isEmergent ? 'Human handoff recommended' : 'Unable to answer safely'}
+                {isEmergent ? 'Human handoff recommended' : 'Needs review — unable to answer safely'}
               </div>
-              <div style={{ fontSize: 12, color: 'var(--cn-danger)', fontFamily: 'var(--font-sans)', fontWeight: 400, marginTop: 2 }}>
+              <div style={{ fontSize: 12, color: pal.strong, fontFamily: 'var(--font-sans)', fontWeight: 400, marginTop: 2 }}>
                 {isEmergent
                   ? 'CareNav does not provide emergency medical advice.'
                   : 'CareNav only answers grounded care, benefit, and selected member profile questions.'}
@@ -335,13 +378,13 @@ function AssistantBubble({ msg }: { msg: Message }) {
             <div
               style={{
                 background: 'rgba(255,255,255,0.56)',
-                border: '1px solid rgba(180,35,47,0.16)',
+                border: `1px solid ${pal.reasonBorder}`,
                 borderRadius: 7,
                 padding: '11px 13px',
                 marginBottom: 12,
               }}
             >
-              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-danger)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
+              <div style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: pal.strong, textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 5 }}>
                 Reason
               </div>
               <p style={{ fontSize: 13, color: 'var(--cn-text)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.55, margin: 0 }}>
@@ -377,19 +420,32 @@ function AssistantBubble({ msg }: { msg: Message }) {
     );
   }
 
+  const isUrgent = r ? severityOf(r) === 'urgent' : false;
   return (
     <div style={{ marginBottom: 22 }}>
       <div style={labelStyle}>CareNav</div>
       <div
         style={{
           background: 'var(--cn-card-strong)',
-          border: '1px solid var(--cn-border)',
+          border: isUrgent ? '1px solid var(--cn-warn-border)' : '1px solid var(--cn-border)',
           borderRadius: '3px 10px 10px 10px',
           padding: '14px 16px',
           maxWidth: 620,
           boxShadow: 'var(--cn-shadow)',
         }}
       >
+        {isUrgent && (
+          <div
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              background: 'var(--cn-warn-soft)', border: '1px solid var(--cn-warn-border)',
+              borderRadius: 6, padding: '6px 10px', marginBottom: 11,
+              fontSize: 11, color: 'var(--cn-warn)', fontFamily: 'var(--font-sans)', fontWeight: 500,
+            }}
+          >
+            <AlertCircle size={12} /> Time-sensitive — if symptoms are severe or worsening, seek care now.
+          </div>
+        )}
         <div
           style={{
             fontSize: 14, color: 'var(--cn-text)',

@@ -20,7 +20,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
       style={{
         borderBottom: '1px solid var(--cn-border)',
         background: 'var(--cn-panel)',
-        padding: '12px 16px',
+        padding: '8px 16px',
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -30,7 +30,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
           aria-label="Previous members"
           style={{
             width: 28,
-            height: 72,
+            height: 56,
             borderRadius: 7,
             border: '1px solid var(--cn-border)',
             background: 'var(--cn-card)',
@@ -70,7 +70,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                   : '1.5px solid var(--cn-border)',
                 background: isSelected ? 'var(--cn-info-soft)' : 'var(--cn-card-strong)',
                 borderRadius: 7,
-                padding: '11px 13px',
+                padding: '9px 13px',
                 cursor: 'pointer',
                 textAlign: 'left',
                 transition: 'all 0.15s',
@@ -112,6 +112,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                 {m.age} · {m.plan}
               </div>
               <div
+                title={m.summary}
                 style={{
                   fontSize: 10,
                   color: 'var(--cn-muted)',
@@ -119,6 +120,9 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                   fontWeight: 400,
                   marginTop: 3,
                   lineHeight: 1.4,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
                 }}
               >
                 {m.summary}
@@ -139,7 +143,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
           aria-label="Next members"
           style={{
             width: 28,
-            height: 72,
+            height: 56,
             borderRadius: 7,
             border: '1px solid var(--cn-border)',
             background: 'var(--cn-card)',

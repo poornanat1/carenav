@@ -12,7 +12,9 @@
   --cn-ink: #17211b;
   --cn-text: #26342c;
   --cn-muted: #5d6a61;
-  --cn-subtle: #7a857d;
+  /* Darkened from #7a857d to clear WCAG AA (4.5:1) on the light card surfaces, where it's
+     used for timestamps, metadata, chunk ids, and secondary text. */
+  --cn-subtle: #697469;
   --cn-border: rgba(23, 33, 27, 0.14);
   --cn-border-soft: rgba(23, 33, 27, 0.08);
   --cn-surface: rgba(255, 255, 255, 0.48);
@@ -22,6 +24,8 @@
   --cn-info: #276b8f;
   --cn-info-soft: rgba(39, 107, 143, 0.11);
   --cn-warn: #956a16;
+  --cn-warn-soft: rgba(149, 106, 22, 0.1);
+  --cn-warn-border: rgba(149, 106, 22, 0.24);
   --cn-danger: #b4232f;
   --cn-danger-soft: rgba(180, 35, 47, 0.08);
   --cn-shadow: 0 10px 30px rgba(23, 33, 27, 0.08);
