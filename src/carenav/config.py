@@ -74,10 +74,32 @@ class Settings(BaseSettings):
     # present. Embeddings are unaffected (always real). Useful to run the loop without spend.
     stub_generation: bool = Field(default=False, description="Use the stub generator only.")
 
-    # Per-million-token prices (USD) for cost capture in the gateway. Keyed by model name;
-    # the gateway falls back to the small-tier price for any unlisted model. Update as
-    # pricing changes — these feed the cost/conversation metric in the eval.
     model_request_timeout_s: float = Field(default=30.0, description="Per model call timeout.")
+
+    # Per-million-token prices (USD) for cost capture in the gateway, keyed by the *exact*
+    # model id passed to the provider (so the keys below must match model_small /
+    # model_frontier / embedding_model / pii_base_model above). The gateway falls back to
+    # model_price_default for any unlisted model. These feed the cost metric in the eval, so
+    # an unpriced model would silently understate spend — get_price_for() warns when it has
+    # to fall back. Update as provider pricing changes.
+    model_prices: dict[str, tuple[float, float]] = Field(
+        default_factory=lambda: {
+            # Fireworks (generation + PII) — input/output per 1M tokens.
+            "accounts/fireworks/models/mistral-small-24b-instruct-2501": (0.20, 0.20),
+            "accounts/fireworks/models/mistral-large-3-fp8": (0.90, 0.90),
+            "accounts/fireworks/models/llama-v3p1-8b-instruct": (0.20, 0.20),
+            # Mistral — embeddings have no output tokens.
+            "mistral-embed": (0.10, 0.0),
+            # Mistral generation fallback (MODEL_PROVIDER=mistral).
+            "mistral-small-latest": (0.10, 0.30),
+            "mistral-large-latest": (2.00, 6.00),
+        },
+        description="model id -> (input_per_mtok_usd, output_per_mtok_usd).",
+    )
+    model_price_default: tuple[float, float] = Field(
+        default=(0.20, 0.20),
+        description="Fallback (input, output) per-Mtok price for an unpriced model.",
+    )
 
     # Mistral powers embeddings/RAG. It can also serve as a generation fallback when
     # MODEL_PROVIDER=mistral or when Fireworks is not configured.

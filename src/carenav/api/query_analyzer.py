@@ -10,9 +10,12 @@ from __future__ import annotations
 
 import json
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Protocol
 
+import httpx
+
+from carenav.agents.providers import SPECIALTY_TERMS
 from carenav.data import condition_topics
 from carenav.models import ModelGateway
 
@@ -135,7 +138,7 @@ def llm_condition_topic(question: str, gateway: ModelGateway | None) -> str | No
     )
     try:
         raw = gateway.generate(prompt, label="api.condition_extract").text.strip()
-    except Exception:
+    except (RuntimeError, httpx.HTTPError, ConnectionError, TimeoutError):
         return None
     return _TOPIC_LOOKUP.get(raw.strip().rstrip(".").lower())
 
@@ -199,16 +202,13 @@ def _is_benefit_coverage_language(question: str) -> bool:
     return any(term in low for term in coverage_terms)
 
 
+# Provider-search phrasings. The specialty nouns come from one shared list (providers.
+# SPECIALTY_TERMS), so this and the orchestrator router recognize the same vocabulary.
+_SPECIALTY_ALT = "|".join(re.escape(t) for t in SPECIALTY_TERMS)
 _PROVIDER_SEARCH_RE = re.compile(
-    r"\bfind (a |an )?(doctor|cardiologist|specialist|provider|dermatologist|"
-    r"pediatrician|endocrinologist|orthopedist|orthopedic specialist|neurologist|"
-    r"oncologist|ophthalmologist)\b|"
-    r"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b("
-    r"doctor|provider|specialist|cardiologist|dermatologist|pediatrician|"
-    r"endocrinologist|orthopedist|neurologist|oncologist|ophthalmologist)\b|"
-    r"\b(in[- ]network|near me)\b.*\b(doctor|provider|specialist|cardiologist|"
-    r"dermatologist|pediatrician|endocrinologist|orthopedist|neurologist|"
-    r"oncologist|ophthalmologist)\b",
+    rf"\bfind (a |an )?({_SPECIALTY_ALT})\b|"
+    rf"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b({_SPECIALTY_ALT})\b|"
+    rf"\b(in[- ]network|near me)\b.*\b({_SPECIALTY_ALT})\b",
     re.IGNORECASE,
 )
 
@@ -253,40 +253,25 @@ def provider_detail_name(question: str) -> str | None:
     return name
 
 
-def _guardrail_analysis(
-    question: str,
-    summary: MemberContext,
-    *,
-    include_soft: bool = True,
-) -> QueryAnalysis | None:
+def _hard_guardrail(question: str, summary: MemberContext) -> QueryAnalysis | None:
+    """Deterministic routes that must NOT depend on model judgment, in precedence order.
+
+    These run BEFORE the LLM (and stand alone when no gateway is configured). They cover
+    cases where a wrong model call would mis-handle account/provider/coverage intent. The
+    softer, more ambiguous cases (education vs profile, presence questions) are left to
+    _soft_guardrail so the LLM gets first say on them.
+    """
     low = question.lower()
     profile_mentioned = _mentions_selected_profile(question, summary)
 
     if is_provider_search_question(question):
-        return QueryAnalysis(
-            scope="profile",
-            kind="provider_search",
-            needs_profile=True,
-        )
+        return QueryAnalysis(scope="profile", kind="provider_search", needs_profile=True)
 
     if _is_selected_member_identity_question(question, summary):
         return QueryAnalysis(scope="profile", kind="summary", needs_profile=True)
 
     if provider_detail_name(question):
-        return QueryAnalysis(
-            scope="profile",
-            kind="provider_detail",
-            needs_profile=True,
-        )
-
-    if include_soft and _is_educational_question(question) and not profile_mentioned:
-        return QueryAnalysis(
-            scope="general",
-            kind="knowledge",
-            kb_intent="condition_info",
-            needs_profile=False,
-            needs_kb=True,
-        )
+        return QueryAnalysis(scope="profile", kind="provider_detail", needs_profile=True)
 
     plan_terms = ["what plan", "which plan", "plan name", "enrolled in", "eligibility"]
     if any(term in low for term in plan_terms):
@@ -294,11 +279,8 @@ def _guardrail_analysis(
 
     if _is_benefit_coverage_language(question):
         return QueryAnalysis(
-            scope="general",
-            kind="other",
-            kb_intent="benefit",
-            needs_profile=False,
-            needs_kb=True,
+            scope="general", kind="other", kb_intent="benefit",
+            needs_profile=False, needs_kb=True,
         )
 
     if any(term in low for term in ["deductible", "out-of-pocket", "out of pocket", "oop"]):
@@ -307,11 +289,8 @@ def _guardrail_analysis(
     risk_terms = ["risk", "at risk", "risky", "complication", "contraindication", "warning"]
     if profile_mentioned and any(term in low for term in risk_terms):
         return QueryAnalysis(
-            scope="mixed",
-            kind="risk",
-            kb_intent="medication",
-            needs_profile=True,
-            needs_kb=True,
+            scope="mixed", kind="risk", kb_intent="medication",
+            needs_profile=True, needs_kb=True,
         )
 
     if profile_mentioned and any(term in low for term in ["recent claim", "last claim", "claims"]):
@@ -320,30 +299,6 @@ def _guardrail_analysis(
     if profile_mentioned and any(term in low for term in ["medication", "medicine", "meds"]):
         return QueryAnalysis(scope="profile", kind="medications", needs_profile=True)
 
-    condition_topic = mentioned_condition_topic(question)
-    if (
-        include_soft
-        and profile_mentioned
-        and condition_topic
-        and _is_condition_presence_question(question)
-    ):
-        return QueryAnalysis(
-            scope="profile",
-            kind="specific_condition",
-            condition_topic=condition_topic,
-            needs_profile=True,
-        )
-
-    condition_terms = ["condition", "conditions", "diagnosis", "diagnoses", "medical history"]
-    broad_have_question = "what" in low and "have" in low
-    if (
-        profile_mentioned
-        and include_soft
-        and not _is_educational_question(question)
-        and (broad_have_question or any(term in low for term in condition_terms))
-    ):
-        return QueryAnalysis(scope="profile", kind="conditions", needs_profile=True)
-
     summary_terms = ["summarize", "summary", "overview", "profile"]
     if profile_mentioned and any(term in low for term in summary_terms):
         return QueryAnalysis(scope="profile", kind="summary", needs_profile=True)
@@ -351,14 +306,59 @@ def _guardrail_analysis(
     return None
 
 
+def _soft_guardrail(question: str, summary: MemberContext) -> QueryAnalysis | None:
+    """Heuristic routes for ambiguous education/presence/listing intent.
+
+    Lower-confidence than _hard_guardrail. With no gateway these supply a best-effort
+    answer; with a gateway they run AFTER the LLM as a safety net (only the educational
+    'general' result is allowed to override the model — see analyze_member_query).
+    """
+    low = question.lower()
+    profile_mentioned = _mentions_selected_profile(question, summary)
+
+    if _is_educational_question(question) and not profile_mentioned:
+        return QueryAnalysis(
+            scope="general", kind="knowledge", kb_intent="condition_info",
+            needs_profile=False, needs_kb=True,
+        )
+
+    condition_topic = mentioned_condition_topic(question)
+    if profile_mentioned and condition_topic and _is_condition_presence_question(question):
+        return QueryAnalysis(
+            scope="profile", kind="specific_condition",
+            condition_topic=condition_topic, needs_profile=True,
+        )
+
+    condition_terms = ["condition", "conditions", "diagnosis", "diagnoses", "medical history"]
+    broad_have_question = "what" in low and "have" in low
+    if (
+        profile_mentioned
+        and not _is_educational_question(question)
+        and (broad_have_question or any(term in low for term in condition_terms))
+    ):
+        return QueryAnalysis(scope="profile", kind="conditions", needs_profile=True)
+
+    return None
+
+
+_OTHER_KB = QueryAnalysis(scope="general", kind="other", needs_profile=False, needs_kb=True)
+
+
 def analyze_member_query(
     question: str, summary: MemberContext, gateway: ModelGateway | None = None
 ) -> QueryAnalysis:
-    guardrail = _guardrail_analysis(question, summary, include_soft=gateway is None)
-    if guardrail:
-        return guardrail
+    """Route a selected-member question. Resolution order:
+
+    1. Hard guardrails (deterministic, never deferred to the model).
+    2. If no gateway: soft guardrails, else the generic KB fallback.
+    3. LLM structured analysis, with post-hoc corrections and the soft guardrails as an
+       educational-intent safety net.
+    """
+    hard = _hard_guardrail(question, summary)
+    if hard:
+        return hard
     if gateway is None:
-        return QueryAnalysis(scope="general", kind="other", needs_profile=False, needs_kb=True)
+        return _soft_guardrail(question, summary) or _OTHER_KB
 
     topics = ", ".join(summary.kb_topics) if summary.kb_topics else "none"
     conditions = ", ".join(summary.conditions) if summary.conditions else "none"
@@ -413,8 +413,8 @@ Question: {question}
 JSON:"""
     try:
         raw = gateway.generate(prompt, label="api.query_analyzer").text.strip()
-    except Exception:
-        return QueryAnalysis(scope="general", kind="other", needs_profile=False, needs_kb=True)
+    except (RuntimeError, httpx.HTTPError, ConnectionError, TimeoutError):
+        return _OTHER_KB
 
     start = raw.find("{")
     end = raw.rfind("}")
@@ -423,7 +423,7 @@ JSON:"""
     try:
         data = json.loads(raw)
     except json.JSONDecodeError:
-        return QueryAnalysis(scope="general", kind="other", needs_profile=False, needs_kb=True)
+        return _OTHER_KB
 
     analysis = QueryAnalysis(
         scope=str(data.get("scope", "general")).lower(),
@@ -435,14 +435,7 @@ JSON:"""
     )
 
     if first_name and first_name in question.lower() and analysis.scope != "general":
-        analysis = QueryAnalysis(
-            scope=analysis.scope,
-            kind=analysis.kind,
-            condition_topic=analysis.condition_topic,
-            kb_intent=analysis.kb_intent,
-            needs_profile=True,
-            needs_kb=analysis.needs_kb,
-        )
+        analysis = replace(analysis, needs_profile=True)
 
     if (
         _is_benefit_coverage_language(question)
@@ -450,16 +443,15 @@ JSON:"""
         and analysis.kind == "coverage"
     ):
         return QueryAnalysis(
-            scope="general",
-            kind="other",
-            kb_intent="benefit",
-            needs_profile=False,
-            needs_kb=True,
+            scope="general", kind="other", kb_intent="benefit",
+            needs_profile=False, needs_kb=True,
         )
 
-    educational_guardrail = _guardrail_analysis(question, summary)
-    if educational_guardrail and educational_guardrail.scope == "general":
-        return educational_guardrail
+    # Safety net: if the soft guardrails would route this to educational/general KB, trust
+    # that over a model that kept it on-profile (definitions must not pull member facts).
+    soft = _soft_guardrail(question, summary)
+    if soft and soft.scope == "general":
+        return soft
 
     # Presence questions ("does hilton have high sugar") that the LLM mislabeled as a
     # generic conditions/other listing are re-routed to specific_condition when a topic

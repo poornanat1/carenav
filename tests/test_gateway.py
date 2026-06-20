@@ -42,6 +42,27 @@ def test_cost_pricing_for_known_model():
     assert round(cost, 2) == round(0.10 + 0.30, 2)
 
 
+def test_every_configured_model_has_a_price():
+    # Regression: the price table was once keyed on names that never matched the configured
+    # Fireworks model ids, so every generation call silently fell through to the default.
+    for model in (
+        settings.model_small,
+        settings.model_frontier,
+        settings.embedding_model,
+        settings.pii_base_model,
+    ):
+        assert model in settings.model_prices, f"no price entry for configured model {model!r}"
+
+
+def test_fireworks_http_error_is_retryable():
+    # The retry predicate must SEE the status code, so transient HTTP errors back off.
+    from carenav.models.gateway import TransientModelError, _is_transient
+
+    assert _is_transient(TransientModelError("rate limited", code=429))
+    assert _is_transient(TransientModelError("server error", code=503))
+    assert not _is_transient(TransientModelError("bad request", code=400))
+
+
 # --- PII detector (fine-tuned span extractor) ---
 
 

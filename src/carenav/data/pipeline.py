@@ -46,7 +46,7 @@ MIN_COUNTS = {
     "provider": 50,
     "plan_network": 50,
     "benefit_rule": 18,  # 3 plans x 6 categories
-    "kb_doc": 55,        # 31 consumer-health + 26 drug-label + 4 SBC/coverage
+    "kb_doc": 55,        # floor for the consumer-health + drug-label + SBC/coverage corpus
     "kb_chunk": 200,     # heading-scoped chunks across the corpus
 }
 
@@ -88,6 +88,16 @@ def run_kb() -> dict[str, int]:
     return ingest_kb.run()
 
 
+# Stage name -> callable. Each stage commits independently and is idempotent, so a failed
+# run can be re-run from the start without duplicating rows.
+_STAGE_RUNNERS = {
+    "synthea": ingest_synthea.run,
+    "nppes": ingest_nppes.run,
+    "benefits": ingest_benefits.run,
+    "kb": run_kb,
+}
+
+
 def run(stages: list[str]) -> int:
     if not healthcheck():
         print(
@@ -99,18 +109,17 @@ def run(stages: list[str]) -> int:
     print("→ init schema (tables + pgvector extension)")
     init_schema()
 
-    if "synthea" in stages:
-        print("→ stage: synthea")
-        print("   ", ingest_synthea.run())
-    if "nppes" in stages:
-        print("→ stage: nppes")
-        print("   ", ingest_nppes.run())
-    if "benefits" in stages:
-        print("→ stage: benefits")
-        print("   ", ingest_benefits.run())
-    if "kb" in stages:
-        print("→ stage: kb")
-        print("   ", run_kb())
+    for stage in stages:
+        print(f"→ stage: {stage}")
+        try:
+            print("   ", _STAGE_RUNNERS[stage]())
+        except Exception as exc:  # noqa: BLE001 — top-level pipeline reporting boundary
+            # Each stage commits its own rows, so earlier stages are already persisted.
+            # Report which stage broke (and that prior stages are committed) instead of a
+            # bare traceback, then stop — re-running from the start is safe (idempotent).
+            print(f"\nERROR: stage {stage!r} failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+            print("Earlier stages committed; re-run the pipeline to resume.", file=sys.stderr)
+            return 3
 
     print("\n→ verifying row counts")
     counts = current_counts()

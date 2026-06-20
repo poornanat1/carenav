@@ -24,7 +24,9 @@ class _Client:
 
 def test_fireworks_sft_job_payload_is_sparse(monkeypatch):
     monkeypatch.setattr(settings, "fireworks_api_key", "fw-test")
-    monkeypatch.setattr(settings, "pii_base_model", "accounts/fireworks/models/llama-v3p1-8b-instruct")
+    monkeypatch.setattr(
+        settings, "pii_base_model", "accounts/fireworks/models/llama-v3p1-8b-instruct"
+    )
     monkeypatch.setattr(settings, "pii_output_model", "carenav-pii-detector")
     monkeypatch.setattr(settings, "pii_train_epochs", 1)
     monkeypatch.setattr(settings, "pii_learning_rate", None)

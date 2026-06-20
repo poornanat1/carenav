@@ -10,7 +10,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 import httpx
@@ -18,7 +18,7 @@ import httpx
 from carenav.config import settings
 from carenav.models.gateway import ModelGateway
 
-_SYSTEM = ModelGateway._PII_SYSTEM
+_SYSTEM = ModelGateway.PII_SYSTEM_PROMPT
 _FW_TERMINAL_STATES = {
     "JOB_STATE_COMPLETED",
     "JOB_STATE_FAILED",
@@ -154,8 +154,11 @@ def _create_upload_validate_dataset(
         )
     _raise_for_fireworks(upload_resp, f"dataset upload {dataset_id}")
 
-    validate_resp = client.post(_fw_url(f"{base}/{dataset_id}:validateUpload"), headers=_headers(), json={})
-    if validate_resp.status_code >= 400 and "dataset is already uploaded" not in validate_resp.text:
+    validate_resp = client.post(
+        _fw_url(f"{base}/{dataset_id}:validateUpload"), headers=_headers(), json={}
+    )
+    already_uploaded = "dataset is already uploaded" in validate_resp.text
+    if validate_resp.status_code >= 400 and not already_uploaded:
         _raise_for_fireworks(validate_resp, f"dataset validate {dataset_id}")
     return f"accounts/{account_id}/datasets/{dataset_id}"
 
@@ -201,7 +204,11 @@ def _get_fireworks_sft_job(client: httpx.Client, job_name: str) -> dict[str, Any
 def run(*, poll_seconds: int = 30, max_polls: int = 240) -> dict:
     """Reshape corpus -> Fireworks datasets -> SFT job -> poll -> return job info."""
     if settings.pii_model:
-        return {"status": "skipped", "reason": "pii_model already set", "model": settings.pii_model}
+        return {
+            "status": "skipped",
+            "reason": "pii_model already set",
+            "model": settings.pii_model,
+        }
 
     _require_fireworks_key()
     train_corpus = os.path.join(settings.pii_corpus_dir, "train.jsonl")
@@ -213,13 +220,15 @@ def run(*, poll_seconds: int = 30, max_polls: int = 240) -> dict:
         )
 
     train_sft = _write_sft(
-        _to_sft_pairs(train_corpus), os.path.join(settings.pii_corpus_dir, "train.fireworks.sft.jsonl")
+        _to_sft_pairs(train_corpus),
+        os.path.join(settings.pii_corpus_dir, "train.fireworks.sft.jsonl"),
     )
     eval_sft = _write_sft(
-        _to_sft_pairs(eval_corpus), os.path.join(settings.pii_corpus_dir, "eval.fireworks.sft.jsonl")
+        _to_sft_pairs(eval_corpus),
+        os.path.join(settings.pii_corpus_dir, "eval.fireworks.sft.jsonl"),
     )
 
-    suffix = datetime.now(timezone.utc).strftime("%Y%m%d%H%M%S")
+    suffix = datetime.now(UTC).strftime("%Y%m%d%H%M%S")
     with httpx.Client(timeout=120) as client:
         account_id = _account_id(client)
         train_dataset = _create_upload_validate_dataset(
@@ -255,7 +264,7 @@ def run(*, poll_seconds: int = 30, max_polls: int = 240) -> dict:
                     "status": state,
                     "job_id": job_name,
                     "fine_tuned_model": info.get("outputModel"),
-                    "hint": "Set PII_MODEL to the fine_tuned_model value after deployment is ready.",
+                    "hint": "Set PII_MODEL to the fine_tuned_model value once deployed.",
                 }
             time.sleep(poll_seconds)
 

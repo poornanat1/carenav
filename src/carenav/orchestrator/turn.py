@@ -18,6 +18,9 @@ docs/06:
 
 from __future__ import annotations
 
+from dataclasses import replace
+
+from carenav.agents import ProviderSearchInput, provider_search, specialty_hint
 from carenav.config import settings
 from carenav.models import ModelGateway
 from carenav.orchestrator import contextualize as _contextualize
@@ -65,8 +68,6 @@ def _redact_sources(sources: list[Hit], pii_map: PiiMap, gw: ModelGateway) -> No
     the generator or re-entering graph state. Hit is frozen, so we swap in a redacted copy.
     Reuses the turn's pii_map so tokens are consistent with the redacted question.
     """
-    from dataclasses import replace
-
     for i, hit in enumerate(sources):
         if not hit.text:
             continue
@@ -140,15 +141,16 @@ def run_turn(
     # --- route (safety triage + intent) ---
     intent, intent_conf, safety = _router.route(question, gw)
 
+    def escalate_unanswered(reason: str, conf: ConfidenceBreakdown) -> TurnResult:
+        # Escalate before any answer exists (no sub-questions/answers gathered yet).
+        return _escalate(question, intent, [question], [], conf, reason, safety,
+                         "human", gw.ledger.total_cost_usd)
+
     if safety == "emergent":
-        conf = ConfidenceBreakdown(intent_conf=1.0)
-        return _escalate(question, intent, [question], [], conf,
-                         "emergent_safety", safety, "human", gw.ledger.total_cost_usd)
+        return escalate_unanswered("emergent_safety", ConfidenceBreakdown(intent_conf=1.0))
 
     if intent == "out_of_scope":
-        conf = ConfidenceBreakdown(intent_conf=intent_conf)
-        return _escalate(question, intent, [question], [], conf,
-                         "out_of_scope", safety, "human", gw.ledger.total_cost_usd)
+        return escalate_unanswered("out_of_scope", ConfidenceBreakdown(intent_conf=intent_conf))
 
     if intent == "provider_search":
         return _provider_turn(question, intent, intent_conf, safety, gw)
@@ -159,18 +161,16 @@ def run_turn(
     plan = _tools.plan_tools(question, intent)
     tool_run = _tools.ToolRun()
     if plan.needs_member or plan.needs_benefit or plan.needs_claims:
+        # The turn needs member data; escalate rather than fabricate if we can't resolve it.
         if member_ref is None:
-            # The turn needs member data but we have no session ref — don't fabricate.
-            conf = ConfidenceBreakdown(intent_conf=intent_conf)
-            return _escalate(question, intent, [question], [], conf,
-                             "member_context_required", safety, "human",
-                             gw.ledger.total_cost_usd)
+            return escalate_unanswered(
+                "member_context_required", ConfidenceBreakdown(intent_conf=intent_conf)
+            )
         tool_run = _tools.exec_and_reflect(question, member_ref, plan, gw)
         if not tool_run.member_id_resolved:
-            conf = ConfidenceBreakdown(intent_conf=intent_conf)
-            return _escalate(question, intent, [question], [], conf,
-                             "member_context_required", safety, "human",
-                             gw.ledger.total_cost_usd)
+            return escalate_unanswered(
+                "member_context_required", ConfidenceBreakdown(intent_conf=intent_conf)
+            )
         # Redact tool-output PII BEFORE it re-enters state / reaches the generator (docs/05).
         # Reuse the turn's pii_map so a value tokenized in the question keeps the same token.
         _redact_sources(tool_run.sources, pii_map, gw)
@@ -180,17 +180,11 @@ def run_turn(
 
     bar = settings.tau_high if safety == "urgent" else settings.tau_low
 
-    # tier is read after the loop (the value that cleared the bar); the for-else escalates
-    # if neither tier did.
-    for tier, model in (("small", None), ("frontier", settings.model_frontier)):  # noqa: B007
-        answers = _answer_turn(
-            question, subs, kb_intent, tool_run.sources, gw, model, plan_id=tool_run.plan_id
-        )
-        text, citations, grounded = _merge(answers)
-        conf = _confidence(intent_conf, answers, grounded, tool_run.tool_conf)
-        if conf.weighted_sum() >= bar:
-            break
-    else:
+    # Try the small tier, then escalate to frontier only if it misses the confidence bar.
+    answers, text, citations, grounded, conf, tier = _answer_at_tiers(
+        question, subs, kb_intent, tool_run, intent_conf, bar, gw
+    )
+    if conf.weighted_sum() < bar:
         return _escalate(question, intent, subs, answers, conf,
                          "low_conf_high_stakes" if safety == "urgent" else "groundedness_fail",
                          safety, "human", gw.ledger.total_cost_usd)
@@ -210,6 +204,34 @@ def run_turn(
         confidence=conf, tier_used=tier, safety_flag=safety,
         cost_usd=gw.ledger.total_cost_usd, rag_answers=answers,
     )
+
+
+def _answer_at_tiers(
+    question: str,
+    subs: list[str],
+    kb_intent: str | None,
+    tool_run: _tools.ToolRun,
+    intent_conf: float,
+    bar: float,
+    gw: ModelGateway,
+) -> tuple[list[RagAnswer], str, list, bool, ConfidenceBreakdown, str]:
+    """Answer at the small tier, retry once at the frontier tier if it misses `bar`.
+
+    Returns the best attempt's (answers, text, citations, grounded, confidence, tier_used).
+    The caller compares confidence against `bar` to decide answer vs escalate, so this never
+    raises — it just returns the frontier attempt when the small tier falls short.
+    """
+    result: tuple | None = None
+    for tier, model in (("small", None), ("frontier", settings.model_frontier)):
+        answers = _answer_turn(
+            question, subs, kb_intent, tool_run.sources, gw, model, plan_id=tool_run.plan_id
+        )
+        text, citations, grounded = _merge(answers)
+        conf = _confidence(intent_conf, answers, grounded, tool_run.tool_conf)
+        result = (answers, text, citations, grounded, conf, tier)
+        if conf.weighted_sum() >= bar:
+            break
+    return result  # type: ignore[return-value]  # loop runs at least once
 
 
 def _answer_turn(
@@ -246,10 +268,8 @@ def _answer_turn(
 
 def _provider_turn(question, intent, intent_conf, safety, gw) -> TurnResult:
     """provider_search: run the provider tool and format a structured, grounded reply."""
-    from carenav.agents import ProviderSearchInput, provider_search
-
     # Pull a specialty hint from the question (best-effort; the tool also filters loosely).
-    specialty = _tools_specialty(question)
+    specialty = specialty_hint(question)
     out = provider_search(ProviderSearchInput(specialty=specialty, limit=5))
     conf = ConfidenceBreakdown(intent_conf=intent_conf, tool_conf=1.0 if out.complete else 0.0)
     if not out.providers:
@@ -269,20 +289,3 @@ def _provider_turn(question, intent, intent_conf, safety, gw) -> TurnResult:
         confidence=conf, tier_used="none", safety_flag=safety,
         cost_usd=gw.ledger.total_cost_usd, rag_answers=[],
     )
-
-
-def _tools_specialty(question: str) -> str | None:
-    import re
-
-    m = re.search(
-        r"\b(cardiolog|dermatolog|pediatric|oncolog|neurolog|endocrinolog|"
-        r"ophthalmolog|family medicine|surg)\w*", question, re.IGNORECASE,
-    )
-    if not m:
-        return None
-    stem = m.group(0).lower()
-    return {
-        "cardiolog": "Cardiology", "dermatolog": "Dermatology", "pediatric": "Pediatrics",
-        "oncolog": "Oncology", "neurolog": "Neurology", "endocrinolog": "Endocrinology",
-        "ophthalmolog": "Ophthalmology", "surg": "Surgery",
-    }.get(m.group(1).lower(), stem.capitalize())

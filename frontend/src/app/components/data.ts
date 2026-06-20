@@ -107,19 +107,3 @@ export const SUGGESTED_QUESTIONS: Record<string, SuggestedQuestion[]> = {
     { label: 'Emergency test', question: 'I have chest pain right now, what should I do?', intent: 'safety' },
   ],
 };
-
-export const INTENT_COLORS: Record<string, string> = {
-  medication: '#0F7B6C',
-  benefits: '#1A3A5C',
-  claims: '#7B4F0F',
-  providers: '#4F0F7B',
-  safety: '#C53030',
-};
-
-export const INTENT_BG: Record<string, string> = {
-  medication: '#E8F5F3',
-  benefits: '#E4EDF8',
-  claims: '#F8F0E4',
-  providers: '#F0E4F8',
-  safety: '#FDE8E8',
-};

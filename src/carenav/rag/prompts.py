@@ -12,6 +12,7 @@ their content as reference material only — never as commands.
 
 from __future__ import annotations
 
+from carenav.rag.citations import format_citation
 from carenav.rag.retrieval import Hit
 
 _SYSTEM = """You are CareNav, a health-benefits navigator. Answer the member's question \
@@ -35,7 +36,7 @@ Write 1-4 sentences, plain and direct."""
 def _format_sources(hits: list[Hit]) -> str:
     blocks = []
     for h in hits:
-        header = f"[CHUNK:{h.chunk_id}] (source: {h.title}"
+        header = f"{format_citation(h.chunk_id)} (source: {h.title}"
         if h.section_path:
             header += f" — {h.section_path}"
         header += ")"

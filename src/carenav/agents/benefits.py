@@ -14,7 +14,9 @@ from carenav.agents.contracts import BenefitLookupInput, BenefitLookupOutput
 from carenav.data.db import session_scope
 from carenav.data.models import BenefitRule
 
-# Free-text → benefit-rule key. Keys must match the seed (data/seeds/benefit_rules.json).
+# Free-text → benefit-rule key, the single source of truth for the benefit vocabulary.
+# Keys must match the seed (data/seeds/benefit_rules.json); orchestrator routing derives its
+# trigger regex and valid-key set from this list (see SERVICE_KEYS / service_mention_re).
 _ALIASES: list[tuple[str, str]] = [
     (r"\bmri\b|\bct scan\b|\badvanced imaging\b|\bimaging\b", "MRI"),
     (r"\bspecialist\b", "specialist_visit"),
@@ -27,6 +29,17 @@ _ALIASES: list[tuple[str, str]] = [
      "preventive_visit"),
     (r"\bemergency room\b|\b er \b|\ber visit\b|\bemergency\b", "emergency_room"),
 ]
+
+# Valid benefit-rule keys, in alias order. Derived from _ALIASES so the two never drift.
+SERVICE_KEYS: tuple[str, ...] = tuple(key for _, key in _ALIASES)
+
+
+def service_mention_re() -> re.Pattern[str]:
+    """Regex that matches any alias phrase, for routing a turn to the benefit tool.
+
+    Built from _ALIASES so the trigger patterns and the normalizer share one vocabulary.
+    """
+    return re.compile("|".join(pattern for pattern, _ in _ALIASES), re.IGNORECASE)
 
 
 def normalize_service(service: str) -> str | None:

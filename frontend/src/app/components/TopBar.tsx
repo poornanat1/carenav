@@ -1,4 +1,5 @@
 import { Activity, RotateCcw, PanelRight } from 'lucide-react';
+import { PROVIDER_SUMMARY } from './systemConfig';
 
 type Props = {
   onReset: () => void;
@@ -59,7 +60,7 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
                 fontSize: 11,
               }}
             >
-              Mistral · RAG enabled
+              {PROVIDER_SUMMARY}
             </span>
 
             <div style={{ width: 1, height: 14, background: 'rgba(244,247,242,0.18)' }} />

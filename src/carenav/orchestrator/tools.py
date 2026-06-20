@@ -27,19 +27,12 @@ from carenav.agents import (
     claims_lookup,
     member_account,
 )
-from carenav.agents.benefits import normalize_service
+from carenav.agents.benefits import SERVICE_KEYS, normalize_service, service_mention_re
 from carenav.agents.contracts import AgentOutput
 from carenav.models import ModelGateway
 from carenav.rag.retrieval import Hit
 
-_SERVICE_KEYS = {
-    "MRI",
-    "specialist_visit",
-    "office_visit",
-    "lab_panel",
-    "preventive_visit",
-    "emergency_room",
-}
+_SERVICE_KEYS = set(SERVICE_KEYS)
 
 _SERVICE_CLASSIFY_PROMPT = """Classify the requested health-plan service into one benefit key.
 
@@ -57,26 +50,31 @@ Question: {question}
 
 Reply with only one allowed key."""
 
-# Service mentions that trigger a benefit lookup (mirrors benefits._ALIASES coverage).
-_SERVICE_RE = re.compile(
-    r"\bmri\b|\bct scan\b|\bimaging\b|\bspecialist\b|\boffice visit\b|\bprimary care\b|"
-    r"\blab\b|\btest\b|\bblood (test|work|panel)\b|\bpreventive\b|\bwellness\b|\bscreening\b|"
-    r"\bemergency room\b|\ber visit\b",
-    re.IGNORECASE,
-)
+# Service mentions that trigger a benefit lookup. Derived from benefits._ALIASES so the
+# routing vocabulary and the normalizer can't drift apart.
+_SERVICE_RE = service_mention_re()
 _DEDUCTIBLE_RE = re.compile(
     r"\bdeductible\b|\bout[- ]of[- ]pocket\b|\boop\b|\bmet (my|the)\b", re.IGNORECASE
 )
 _CLAIM_RE = re.compile(
     r"\bclaims?\b|\bdenied\b|\bdenial\b|\bbilled\b|\bwhy (was|did).*(pay|cover)", re.IGNORECASE
 )
+# A bare service/procedure code on a claim line, e.g. "service code 185347001". 6+ digits.
+_SERVICE_CODE_RE = re.compile(r"\b\d{6,}\b")
 # A service/procedure code names a specific claim line on the member's account
 # ("more information on service code 185347001"). These reference the member's claims,
 # not the plan's benefit rules, so they route to the claims tool.
 _CLAIM_CODE_RE = re.compile(
-    r"\bservice code\b|\bprocedure code\b|\bclaim (id|number|#)\b|\bcpt\b|\bhcpcs\b|\b\d{6,}\b",
+    r"\bservice code\b|\bprocedure code\b|\bclaim (id|number|#)\b|\bcpt\b|\bhcpcs\b|" +
+    _SERVICE_CODE_RE.pattern,
     re.IGNORECASE,
 )
+
+
+def _service_code_in(question: str) -> str | None:
+    """The first bare service/procedure code in the question, if any."""
+    m = _SERVICE_CODE_RE.search(question)
+    return m.group(0) if m else None
 _ELIGIBILITY_RE = re.compile(
     r"\beligib|\bcoverage (start|end|date)|\bam i (still )?covered|\bmy plan\b", re.IGNORECASE
 )
@@ -211,10 +209,7 @@ def _claims_text(o, question: str | None = None) -> str:
         return ""
     # If the question names a specific code, surface that claim first so it is always in
     # the grounded sources even when the member has many claims.
-    code = None
-    if question:
-        m = re.search(r"\b\d{6,}\b", question)
-        code = m.group(0) if m else None
+    code = _service_code_in(question) if question else None
     matched = [c for c in o.claims if code and c.service_code == code]
     others = [c for c in o.claims if c not in matched]
     ordered = matched + others
@@ -259,8 +254,7 @@ def exec_and_reflect(
         # If the question names a specific service code, filter to that claim so it is
         # found even when the member has hundreds of claims (the default lookup caps at a
         # few recent ones). Fall back to recent claims when no code is named.
-        code_match = re.search(r"\b\d{6,}\b", question)
-        code = code_match.group(0) if code_match else None
+        code = _service_code_in(question)
         cl = claims_lookup(ClaimsInput(member_ref=member_ref or "", service_code=code))
         if code and not cl.claims:
             # Named code not on the member's claims — show recent claims so the answer can
@@ -274,7 +268,3 @@ def exec_and_reflect(
 
     run.tool_conf = (sum(completes) / len(completes)) if completes else 1.0
     return run
-
-
-def normalize_service_mention(service: str) -> str | None:
-    return normalize_service(service)

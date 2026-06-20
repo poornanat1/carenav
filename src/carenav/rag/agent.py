@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from carenav.config import settings
 from carenav.models import ModelGateway
 from carenav.rag import groundedness, prompts, query_rewrite, retrieval
+from carenav.rag.citations import cited_ids
 from carenav.rag.retrieval import Hit
 
 
@@ -47,12 +48,9 @@ class RagAnswer:
 
 def _citations_for(answer: str, hits: list[Hit]) -> list[Citation]:
     """Citations for the chunk ids actually referenced in the final answer text."""
-    import re
-
-    cited_ids = set(re.findall(r"\[CHUNK:([^\]]+)\]", answer))
     by_id = {h.chunk_id: h for h in hits}
     out = []
-    for cid in cited_ids:
+    for cid in dict.fromkeys(cited_ids(answer)):  # de-dupe, preserve first-seen order
         h = by_id.get(cid)
         if h:
             out.append(Citation(h.chunk_id, h.title, h.source_url, h.section_path))
