@@ -312,7 +312,11 @@ _MEDICATION_RISKS: tuple[_MedicationRisk, ...] = (
 
 
 def _matching_risk(summary: MemberSummary) -> _MedicationRisk | None:
-    """The first known medication-risk whose drug appears in the member's medications."""
+    """The first known medication-risk whose drug appears in the member's medications.
+
+    Returns None when the member is on none of the risk medications — callers must NOT
+    fabricate a warning for a drug the member isn't taking.
+    """
     meds = [m.lower() for m in summary.medications]
     for risk in _MEDICATION_RISKS:
         if any(risk.medication in m for m in meds):
@@ -328,7 +332,21 @@ def _risk_answer(
     citation: str,
     topics: str,
 ) -> TurnResult:
-    risk = _matching_risk(summary) or _MEDICATION_RISKS[0]
+    name = summary.name.rstrip(".")
+    risk = _matching_risk(summary)
+
+    # No medication-specific risk applies to this member's actual medications. Answer from
+    # their real profile rather than warning about a drug they are not taking.
+    if risk is None:
+        meds = ", ".join(summary.medications) if summary.medications else "no medications"
+        answer = (
+            f"I don't see a specific medication-safety risk to flag for {name} from the "
+            f"selected profile. Active medications are {meds}, and the visible KB topics "
+            f"are: {topics}. For a clinical risk assessment, a care manager should review "
+            f"the full record. {citation}"
+        )
+        return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
+
     medication_hits = retrieval.retrieve(
         f"{question} {risk.augment}", intent="medication", k=3, gateway=gateway
     )
@@ -341,19 +359,13 @@ def _risk_answer(
         ),
         None,
     )
-    has_medication = any(risk.medication in m.lower() for m in summary.medications)
     has_aggravating = any(t.lower() == risk.aggravating_topic for t in summary.kb_topics)
-    profile_factors = []
-    if has_medication:
-        profile_factors.append(risk.factor_label)
+    profile_factors = [risk.factor_label]
     if has_aggravating:
         profile_factors.append(risk.aggravating_label)
-    if not profile_factors:
-        profile_factors.append(f"these visible KB topics: {topics}")
 
-    name = summary.name.rstrip(".")
     if label_hit:
-        risk_word = "does" if has_medication and has_aggravating else "may"
+        risk_word = "does" if has_aggravating else "may"
         warning = risk.warning.format(cite=format_citation(label_hit.chunk_id))
         answer = (
             f"{name} {risk_word} have a medication risk signal to review: the selected "

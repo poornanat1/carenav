@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from carenav.api.app import MemberSummary, app
 from carenav.api.query_analyzer import analyze_member_query
 from carenav.config import settings
+from carenav.models import ModelGateway
 
 client = TestClient(app)
 
@@ -232,6 +233,50 @@ def test_profile_router_treats_lactic_acidosis_as_risk_not_condition_presence():
     assert query.kind == "risk"
     assert query.needs_profile is True
     assert query.needs_kb is True
+
+
+def _member_without_metformin() -> MemberSummary:
+    return MemberSummary(
+        id="member-2",
+        name="Caterina H.",
+        age=94,
+        plan="CareNav Silver",
+        summary="Heart Disease, Upper Respiratory Infection",
+        member_ref="mref_demo:member-2",
+        plan_type="CareNav Silver - synthetic demo member",
+        deductible={"used": 2500.0, "total": 2500.0},
+        oop={"used": 6000.0, "total": 6000.0},
+        medications=["Lisinopril", "NSAID pain reliever"],
+        conditions=["Ischemic heart disease", "Essential hypertension"],
+        kb_topics=["Heart Disease", "Upper Respiratory Infection", "High Blood Pressure"],
+        recent_claims=[],
+        recent_providers=[],
+        note="Synthetic demo member.",
+    )
+
+
+def test_risk_answer_does_not_fabricate_metformin_for_non_metformin_member():
+    # Regression: a "what is this patient at risk for" turn for a member NOT on metformin
+    # used to fall back to the metformin/lactic-acidosis warning anyway. It must not name a
+    # drug the member isn't taking.
+    from carenav.api import profile_turn
+
+    summary = _member_without_metformin()
+    assert profile_turn._matching_risk(summary) is None
+
+    hit = profile_turn._profile_hit(summary)
+    result = profile_turn._risk_answer(
+        "what disease is this patient at risk for",
+        summary,
+        hit,
+        ModelGateway(),
+        "[CHUNK:tool:member_profile]",
+        ", ".join(summary.kb_topics),
+    )
+    answer = result.answer.lower()
+    assert "metformin" not in answer
+    assert "lactic acidosis" not in answer
+    assert not result.escalated
 
 
 def test_profile_router_keeps_condition_definitions_in_rag():
