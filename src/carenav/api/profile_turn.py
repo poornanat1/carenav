@@ -94,8 +94,8 @@ def _profile_hit(summary: MemberSummary) -> Hit:
     ]
     claim_lines = [
         (
-            f"Recent claim: {claim['description']}; status {claim['status']}; "
-            f"member responsibility ${claim['amount']:.2f}."
+            f"Recent claim: {claim.description}; status {claim.status}; "
+            f"member responsibility ${claim.amount:.2f}."
         )
         for claim in summary.recent_claims
     ]
@@ -105,12 +105,12 @@ def _profile_hit(summary: MemberSummary) -> Hit:
             f"Selected member age: {summary.age}.",
             f"Selected member plan: {summary.plan}.",
             (
-                f"Deductible progress: ${summary.deductible['used']:.0f} met of "
-                f"${summary.deductible['total']:.0f}."
+                f"Deductible progress: ${summary.deductible.used:.0f} met of "
+                f"${summary.deductible.total:.0f}."
             ),
             (
-                f"Out-of-pocket progress: ${summary.oop['used']:.0f} met of "
-                f"${summary.oop['total']:.0f}."
+                f"Out-of-pocket progress: ${summary.oop.used:.0f} met of "
+                f"${summary.oop.total:.0f}."
             ),
             "Loaded clinical conditions: "
             + (", ".join(summary.conditions) if summary.conditions else "none")
@@ -375,9 +375,9 @@ def _summary_answer(name: str, summary: MemberSummary, topics: str, conditions: 
     return (
         f"{name} is a {summary.age}-year-old synthetic Synthea member on {summary.plan}. "
         f"The selected profile maps to these KB topics: {topics}. "
-        f"Deductible progress is ${summary.deductible['used']:.0f} of "
-        f"${summary.deductible['total']:.0f}, and out-of-pocket progress is "
-        f"${summary.oop['used']:.0f} of ${summary.oop['total']:.0f}. {_PROFILE_CITATION}"
+        f"Deductible progress is ${summary.deductible.used:.0f} of "
+        f"${summary.deductible.total:.0f}, and out-of-pocket progress is "
+        f"${summary.oop.used:.0f} of ${summary.oop.total:.0f}. {_PROFILE_CITATION}"
     )
 
 
@@ -389,22 +389,22 @@ def _conditions_answer(name: str, summary: MemberSummary, topics: str, condition
 
 
 def _coverage_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
-    deductible_remaining = max(summary.deductible["total"] - summary.deductible["used"], 0.0)
-    oop_remaining = max(summary.oop["total"] - summary.oop["used"], 0.0)
+    deductible_remaining = max(summary.deductible.total - summary.deductible.used, 0.0)
+    oop_remaining = max(summary.oop.total - summary.oop.used, 0.0)
     return (
         f"{name} is enrolled in {summary.plan}. Deductible progress is "
-        f"${summary.deductible['used']:.0f} of ${summary.deductible['total']:.0f}, "
+        f"${summary.deductible.used:.0f} of ${summary.deductible.total:.0f}, "
         f"so ${deductible_remaining:.0f} remains. "
-        f"Out-of-pocket progress is ${summary.oop['used']:.0f} of "
-        f"${summary.oop['total']:.0f}, so ${oop_remaining:.0f} remains. {_PROFILE_CITATION}"
+        f"Out-of-pocket progress is ${summary.oop.used:.0f} of "
+        f"${summary.oop.total:.0f}, so ${oop_remaining:.0f} remains. {_PROFILE_CITATION}"
     )
 
 
 def _claims_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
     if summary.recent_claims:
         claims = "; ".join(
-            f"{claim['description']} ({claim['status']}), member responsibility "
-            f"${claim['amount']:.2f}"
+            f"{claim.description} ({claim.status}), member responsibility "
+            f"${claim.amount:.2f}"
             for claim in summary.recent_claims
         )
         return f"{name}'s recent claims are: {claims}. {_PROFILE_CITATION}"

@@ -29,6 +29,7 @@ from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.contextualize import Turn, contextualize_question
 from carenav.orchestrator.state import TurnResult
+from carenav.rag.agent import Citation
 
 app = FastAPI(title="CareNav", version="0.1.0")
 app.add_middleware(
@@ -88,7 +89,7 @@ def _citation_excerpts(result: TurnResult) -> dict[str, str]:
     return excerpts
 
 
-def _citation_source_url(c) -> str | None:
+def _citation_source_url(c: Citation) -> str | None:
     """Source URL to expose for a citation.
 
     The on-disk corpus is authoritative for corpus docs: internal docs return None (so the

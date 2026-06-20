@@ -258,15 +258,18 @@ class ModelGateway:
 
     # --- PII detection (fine-tuned SFT model) ---------------------------------
 
-    # System instruction for the fine-tuned extractor. The fine-tune teaches the output
-    # shape; this frames the task around copying exact substrings instead of counting
-    # offsets. Offsets are resolved locally, which is much more reliable.
-    _PII_SYSTEM = (
+    # System instruction for the fine-tuned extractor — kept here (not in redaction.entities)
+    # because models.gateway is imported by the redaction package, so importing back the
+    # other way would be circular. The training pipeline imports PII_SYSTEM_PROMPT from this
+    # class. The fine-tune teaches the output shape; this frames the task as copying exact
+    # substrings, so offsets are resolved locally (more reliable than counting characters).
+    PII_SYSTEM_PROMPT = (
         "You detect personal/health identifiers in the user's message and return ONLY a "
         'JSON array of entities: [{"text": str, "label": str}]. Labels: '
         "NAME, DOB, ADDRESS, PROVIDER_NAME. text must be copied exactly from the user message. "
         "Return [] if none."
     )
+    _PII_SYSTEM = PII_SYSTEM_PROMPT  # backward-compat alias for existing references
 
     def classify_pii(self, text: str, *, model: str | None = None) -> list[dict] | None:
         """Detect free-text PII spans with the fine-tuned model. Returns raw span dicts.

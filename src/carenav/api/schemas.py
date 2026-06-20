@@ -46,6 +46,25 @@ class TurnResponse(BaseModel):
     cost_usd: float
 
 
+class MoneyProgress(BaseModel):
+    """Accumulator progress (deductible / out-of-pocket) in dollars."""
+
+    used: float
+    total: float
+
+
+class RecentClaim(BaseModel):
+    description: str
+    date: str
+    amount: float
+    status: str
+
+
+class RecentProvider(BaseModel):
+    name: str
+    specialty: str
+
+
 class MemberSummary(BaseModel):
     id: str
     name: str
@@ -54,13 +73,13 @@ class MemberSummary(BaseModel):
     summary: str
     member_ref: str
     plan_type: str
-    deductible: dict[str, float]
-    oop: dict[str, float]
+    deductible: MoneyProgress
+    oop: MoneyProgress
     medications: list[str]
     conditions: list[str]
     kb_topics: list[str]
-    recent_claims: list[dict]
-    recent_providers: list[dict]
+    recent_claims: list[RecentClaim]
+    recent_providers: list[RecentProvider]
     note: str
 
 

@@ -71,18 +71,22 @@ def require_postgres() -> None:
         )
 
 
+# Postgres caps a statement at 65535 bind parameters (cols x rows); stay safely under it.
+_PG_MAX_BIND_PARAMS = 60000
+
+
 def pg_upsert(session, model, rows: list[dict], index_elements: list[str]) -> None:
     """Idempotent bulk upsert via INSERT ... ON CONFLICT DO UPDATE.
 
-    Batched to stay under Postgres's 65535 bind-parameter limit (cols x rows). The shared
-    ingest helper for every loader (Synthea, NPPES, benefits, KB).
+    Batched to stay under Postgres's bind-parameter limit. The shared ingest helper for
+    every loader (Synthea, NPPES, benefits, KB).
     """
     from sqlalchemy.dialects.postgresql import insert as pg_insert
 
     if not rows:
         return
     n_cols = max(1, len(model.__table__.columns))
-    batch = max(1, 60000 // n_cols)
+    batch = max(1, _PG_MAX_BIND_PARAMS // n_cols)
     for start in range(0, len(rows), batch):
         chunk = rows[start:start + batch]
         stmt = pg_insert(model).values(chunk)

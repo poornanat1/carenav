@@ -1,8 +1,13 @@
 """Diagnose Mistral fine-tuning availability for the PII SFT job.
 
-By default this is read-only: it calls GET /v1/models and prints the fine-tuning
-metadata Mistral returns for base models. Pass ``--attempt-create`` with an already
-uploaded training file id to reproduce the job-create response with ``auto_start=false``.
+Legacy / manual diagnostic for the *Mistral* managed fine-tuning path, kept separate from
+the live PII pipeline (which runs on Fireworks — see finetune.py). By default this is
+read-only: it calls GET /v1/models and prints the fine-tuning metadata Mistral returns for
+base models. Pass ``--attempt-create`` with an already uploaded training file id to
+reproduce the job-create response with ``auto_start=false``.
+
+Note ``--model`` must be a MISTRAL base model id (this hits api.mistral.ai), not the
+Fireworks ``settings.pii_base_model`` the production pipeline uses.
 """
 
 from __future__ import annotations
@@ -16,6 +21,9 @@ import httpx
 from carenav.config import settings
 
 _API_BASE = "https://api.mistral.ai"
+# A Mistral base model that supports managed fine-tuning (this script targets api.mistral.ai,
+# so it must NOT default to the Fireworks settings.pii_base_model).
+_DEFAULT_MISTRAL_BASE = "open-mistral-7b"
 
 
 def _headers() -> dict[str, str]:
@@ -115,7 +123,7 @@ def create_job(
 
 def main() -> None:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", default=settings.pii_base_model)
+    parser.add_argument("--model", default=_DEFAULT_MISTRAL_BASE)
     parser.add_argument("--attempt-create", action="store_true")
     parser.add_argument("--train-file-id")
     parser.add_argument("--validation-file-id")
@@ -125,7 +133,10 @@ def main() -> None:
     with httpx.Client(timeout=30) as client:
         list_models(client)
         if not args.attempt_create:
-            print("\nNo job create attempted. Add --attempt-create --train-file-id <id> to reproduce 422.")
+            print(
+                "\nNo job create attempted. "
+                "Add --attempt-create --train-file-id <id> to reproduce 422."
+            )
             return
         if not args.train_file_id:
             raise RuntimeError("--train-file-id is required with --attempt-create")

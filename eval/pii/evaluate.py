@@ -120,7 +120,10 @@ def evaluate(
 
 
 def _print_report(results: dict[str, dict], n_examples: int, *, concurrency: int) -> None:
-    print(f"\nPII detector eval — {n_examples} examples, span overlap match, concurrency={concurrency}\n")
+    print(
+        f"\nPII detector eval — {n_examples} examples, span overlap match, "
+        f"concurrency={concurrency}\n"
+    )
     header = f"{'predictor':<12} {'P':>6} {'R':>6} {'F1':>6}   per-entity recall"
     print(header)
     print("-" * len(header))

@@ -38,6 +38,11 @@ ENTITY_TYPES: tuple[str, ...] = (
     PROVIDER_NAME,
 )
 
+# Labels the free-text NER model (layer 2) actually emits — a subset of ENTITY_TYPES.
+# PHONE/EMAIL/SSN/MEMBER_ID are caught structurally by the regex layer, and MRN is not yet in
+# the model's label set. The serving prompt (ModelGateway.PII_SYSTEM_PROMPT) lists these.
+MODEL_LABELS: tuple[str, ...] = (NAME, DOB, ADDRESS, PROVIDER_NAME)
+
 
 @dataclass(frozen=True)
 class Span:
