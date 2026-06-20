@@ -15,6 +15,7 @@ from typing import Protocol
 
 import httpx
 
+from carenav.agents.providers import SPECIALTY_TERMS
 from carenav.data import condition_topics
 from carenav.models import ModelGateway
 
@@ -201,16 +202,13 @@ def _is_benefit_coverage_language(question: str) -> bool:
     return any(term in low for term in coverage_terms)
 
 
+# Provider-search phrasings. The specialty nouns come from one shared list (providers.
+# SPECIALTY_TERMS), so this and the orchestrator router recognize the same vocabulary.
+_SPECIALTY_ALT = "|".join(re.escape(t) for t in SPECIALTY_TERMS)
 _PROVIDER_SEARCH_RE = re.compile(
-    r"\bfind (a |an )?(doctor|cardiologist|specialist|provider|dermatologist|"
-    r"pediatrician|endocrinologist|orthopedist|orthopedic specialist|neurologist|"
-    r"oncologist|ophthalmologist)\b|"
-    r"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b("
-    r"doctor|provider|specialist|cardiologist|dermatologist|pediatrician|"
-    r"endocrinologist|orthopedist|neurologist|oncologist|ophthalmologist)\b|"
-    r"\b(in[- ]network|near me)\b.*\b(doctor|provider|specialist|cardiologist|"
-    r"dermatologist|pediatrician|endocrinologist|orthopedist|neurologist|"
-    r"oncologist|ophthalmologist)\b",
+    rf"\bfind (a |an )?({_SPECIALTY_ALT})\b|"
+    rf"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b({_SPECIALTY_ALT})\b|"
+    rf"\b(in[- ]network|near me)\b.*\b({_SPECIALTY_ALT})\b",
     re.IGNORECASE,
 )
 

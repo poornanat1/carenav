@@ -19,9 +19,9 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from carenav.rag.citations import CITATION_RE, CITATION_RUN_RE
 from carenav.rag.retrieval import Hit
 
-_CITE_RE = re.compile(r"\[CHUNK:([^\]]+)\]")
 _WORD_RE = re.compile(r"[a-z0-9]+")
 
 # Sentences that are hedges/non-claims don't need a citation.
@@ -76,7 +76,7 @@ def _is_claim(sentence: str) -> bool:
 
 
 def _entails(claim: str, chunk_text: str) -> bool:
-    claim_words = _content_words(_CITE_RE.sub("", claim))
+    claim_words = _content_words(CITATION_RE.sub("", claim))
     if not claim_words:
         return True
     overlap = claim_words & _content_words(chunk_text)
@@ -91,8 +91,8 @@ def _split_sentences(answer: str) -> list[str]:
     sentence starts after that. "claim. [CHUNK:x] Next claim. [CHUNK:y]" → two sentences,
     each carrying its own citation.
     """
-    # Boundary = .!? then optional spaces + any citation tokens, then before the next word.
-    boundary = re.compile(r"(?<=[.!?])(?:\s*\[CHUNK:[^\]]+\])*\s*")
+    # Boundary = .!? then optional trailing citation run + spaces, before the next word.
+    boundary = re.compile(rf"(?<=[.!?])(?:{CITATION_RUN_RE.pattern})?\s*")
     sentences: list[str] = []
     pos = 0
     for m in boundary.finditer(answer.strip()):
@@ -118,7 +118,7 @@ def check(answer: str, hits: list[Hit]) -> GroundednessResult:
         sentence = sentence.strip()
         if not sentence:
             continue
-        cited = _CITE_RE.findall(sentence)
+        cited = CITATION_RE.findall(sentence)
         is_claim = _is_claim(sentence)
 
         if not is_claim:

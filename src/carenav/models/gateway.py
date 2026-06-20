@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from dataclasses import dataclass, field
 
@@ -498,14 +499,18 @@ def _resolve_entity_text(
 
 # --- offline stub backend ------------------------------------------------------------
 
+# Parses the first source block emitted by rag.prompts._format_sources, whose layout is
+# "[CHUNK:<id>] (source: ...)\n<body>". gateway sits below rag in the layering, so the
+# format is duplicated here rather than imported; if _format_sources changes, update this.
+_STUB_SOURCE_RE = re.compile(r"\[CHUNK:([^\]]+)\]\s*\([^)]*\)\s*\n(.+)")
+
+
 # The stub must satisfy the grounding contract so the agent runs end-to-end without a
 # real model: it echoes the first sentence of the first cited source block and appends
 # that chunk's citation. Because it reuses the source's own words, it passes the
 # claim-level entailment check — a faithful stand-in for a grounded model answer.
 def _stub_generate(prompt: str) -> tuple[str, int, int]:
-    import re
-
-    m = re.search(r"\[CHUNK:([^\]]+)\]\s*\([^)]*\)\s*\n(.+)", prompt)
+    m = _STUB_SOURCE_RE.search(prompt)
     if m:
         chunk_id, body = m.group(1), m.group(2)
         first_sentence = re.split(r"(?<=[.!?])\s+", body.strip())[0]

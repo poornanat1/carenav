@@ -14,8 +14,12 @@ from __future__ import annotations
 
 import re
 
+from carenav.agents.providers import SPECIALTY_TERMS
 from carenav.models import ModelGateway
 from carenav.orchestrator.state import ALL_INTENTS, SAFETY_INTENT
+
+# Alternation of provider/specialty nouns, shared with api.query_analyzer via SPECIALTY_TERMS.
+_SPECIALTY_ALT = "|".join(re.escape(t) for t in SPECIALTY_TERMS)
 
 # --- 1. emergent triage ------------------------------------------------------------------
 
@@ -49,15 +53,10 @@ def triage(question: str) -> str:
 _FAST_PATHS: list[tuple[str, str]] = [
     (r"\bside effects?\b|\bdosage\b|\bhow (do|should) i take\b|\bdrug\b|\bmedication\b",
      "medication"),
-    (r"\bfind (a |an )?(doctor|cardiologist|specialist|provider|dermatologist|"
-     r"pediatrician|endocrinologist|orthopedist|neurologist|oncologist|ophthalmologist)\b",
+    (rf"\bfind (a |an )?({_SPECIALTY_ALT})\b", "provider_search"),
+    (rf"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b({_SPECIALTY_ALT})\b",
      "provider_search"),
-    (r"\b(recommend|recommendation|suggest|suggestion)s?\b.*\b(doctor|provider|"
-     r"specialist|cardiologist|dermatologist|pediatrician|endocrinologist|orthopedist|"
-     r"neurologist|oncologist|ophthalmologist)\b", "provider_search"),
-    (r"\b(in[- ]network|near me)\b.*\b(doctor|provider|specialist|cardiologist|"
-     r"dermatologist|pediatrician|endocrinologist|orthopedist|neurologist|oncologist|"
-     r"ophthalmologist)\b", "provider_search"),
+    (rf"\b(in[- ]network|near me)\b.*\b({_SPECIALTY_ALT})\b", "provider_search"),
     (r"\bdeductible\b|\bcopay\b|\bcoinsurance\b|\bprior auth", "coverage"),
     (r"\bcovered?\b.*\bplan\b|\bplan\b.*\bcover", "coverage"),
 ]
