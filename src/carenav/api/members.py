@@ -10,6 +10,13 @@ from sqlalchemy.orm import selectinload
 from carenav.agents import create_demo_member_ref
 from carenav.agents.contracts import ProviderSearchInput
 from carenav.agents.providers import provider_search
+from carenav.api.member_content import (
+    HIGH_SIGNAL_TOPICS,
+    MEDICATIONS_BY_TOPIC,
+    NO_MEDICATIONS,
+    SPECIALTY_BY_TOPIC,
+    SUGGESTED_QUESTIONS_BY_TOPIC,
+)
 from carenav.api.schemas import MemberSummary, SuggestedQuestion
 from carenav.data import condition_topics
 from carenav.data.db import session_scope
@@ -57,38 +64,20 @@ def condition_topics_for(member: Member) -> list[str]:
 
 
 def medications_for_topics(topics: list[str]) -> list[str]:
+    """Union of the medications mapped to each topic (deduped, order-preserving)."""
     meds: list[str] = []
-    if "type-2-diabetes" in topics:
-        meds.append("Metformin")
-    if "high-blood-pressure" in topics:
-        meds.append("Lisinopril")
-    if "high-cholesterol" in topics:
-        meds.append("Atorvastatin")
-    if "asthma" in topics or "copd" in topics:
-        meds.append("Albuterol inhaler")
-    if "pregnancy" in topics:
-        meds.append("Prenatal vitamins")
-    if "anemia" in topics:
-        meds.append("Iron supplement")
-    if "urinary-tract-infection" in topics:
-        meds.append("Antibiotics")
-    if "low-back-pain" in topics or "arthritis-joint" in topics:
-        meds.append("NSAID pain reliever")
-    return meds or ["No active medication data loaded"]
+    for topic in topics:
+        for med in MEDICATIONS_BY_TOPIC.get(topic, []):
+            if med not in meds:
+                meds.append(med)
+    return meds or [NO_MEDICATIONS]
 
 
 def provider_specialty_for_topics(topics: list[str]) -> str | None:
+    """Recommended specialty for the first of the member's topics that maps to one."""
     for topic in topics:
-        if topic in {"heart-disease", "high-blood-pressure", "high-cholesterol"}:
-            return "Cardiology"
-        if topic == "type-2-diabetes":
-            return "Endocrinology"
-        if topic in {"asthma", "copd", "pneumonia"}:
-            return "Pulmonary Disease"
-        if topic in {"low-back-pain", "arthritis-joint", "osteoporosis"}:
-            return "Orthopedic"
-        if topic in {"cancer"}:
-            return "Oncology"
+        if topic in SPECIALTY_BY_TOPIC:
+            return SPECIALTY_BY_TOPIC[topic]
     return None
 
 
@@ -183,25 +172,22 @@ def member_summary(member: Member, index: int = 0) -> MemberSummary:
     )
 
 
+# Demo-ranking weights: an adult with several high-signal conditions and some claims makes
+# a more interesting profile to demo than a young member with none.
+_ADULT_BONUS = 10
+_PER_TOPIC = 3
+_HIGH_SIGNAL_BONUS = 5
+_MAX_CLAIM_BONUS = 5
+
+
 def demo_score(member: Member) -> int:
     score = 0
     if age(member.dob) >= 18:
-        score += 10
+        score += _ADULT_BONUS
     topics = condition_topics_for(member)
-    score += len(topics) * 3
-    for topic in topics:
-        if topic in {
-            "type-2-diabetes",
-            "high-blood-pressure",
-            "heart-disease",
-            "pregnancy",
-            "asthma",
-            "low-back-pain",
-            "anemia",
-            "urinary-tract-infection",
-        }:
-            score += 5
-    score += min(len(member.claims), 5)
+    score += len(topics) * _PER_TOPIC
+    score += sum(_HIGH_SIGNAL_BONUS for topic in topics if topic in HIGH_SIGNAL_TOPICS)
+    score += min(len(member.claims), _MAX_CLAIM_BONUS)
     return score
 
 
@@ -267,175 +253,8 @@ def topic_questions(conditions: list[Condition], topics: list[str]) -> list[Sugg
     questions: list[SuggestedQuestion] = []
     primary = conditions[0].display if conditions else None
 
-    topic_templates: dict[str, list[SuggestedQuestion]] = {
-        "type-2-diabetes": [
-            SuggestedQuestion(
-                label="Diabetes overview",
-                question="What should I know about prediabetes and type 2 diabetes?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Metformin side effects",
-                question="What are the common side effects of metformin?",
-                intent="medication",
-            ),
-            SuggestedQuestion(
-                label="Diabetes supplies",
-                question="Is continuous glucose monitoring covered under my plan?",
-                intent="benefits",
-            ),
-        ],
-        "high-blood-pressure": [
-            SuggestedQuestion(
-                label="Blood pressure care",
-                question="What should I know about high blood pressure?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="BP medications",
-                question="What should I know about blood pressure medications?",
-                intent="medication",
-            ),
-        ],
-        "high-cholesterol": [
-            SuggestedQuestion(
-                label="Cholesterol care",
-                question="What should I know about high cholesterol?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Statin side effects",
-                question="What are common side effects of statin medications?",
-                intent="medication",
-            ),
-        ],
-        "pregnancy": [
-            SuggestedQuestion(
-                label="Prenatal coverage",
-                question="What prenatal services are covered under my plan?",
-                intent="benefits",
-            ),
-            SuggestedQuestion(
-                label="Prenatal vitamins",
-                question="Are prescription prenatal vitamins covered by my plan?",
-                intent="medication",
-            ),
-        ],
-        "asthma": [
-            SuggestedQuestion(
-                label="Asthma basics",
-                question="What should I know about asthma symptoms and care?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Inhaler info",
-                question="What should I know about albuterol inhalers?",
-                intent="medication",
-            ),
-        ],
-        "low-back-pain": [
-            SuggestedQuestion(
-                label="Back pain care",
-                question="What should I know about low back pain self-care?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="MRI coverage",
-                question="Is an MRI covered under my plan, and does it need prior authorization?",
-                intent="benefits",
-            ),
-        ],
-        "anemia": [
-            SuggestedQuestion(
-                label="Anemia basics",
-                question="What should I know about anemia?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Iron side effects",
-                question="What should I know about iron supplements for anemia?",
-                intent="medication",
-            ),
-        ],
-        "urinary-tract-infection": [
-            SuggestedQuestion(
-                label="UTI care",
-                question="What should I know about urinary tract infection symptoms and care?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Antibiotics",
-                question="What should I know about antibiotic side effects?",
-                intent="medication",
-            ),
-        ],
-        "chronic-kidney-disease": [
-            SuggestedQuestion(
-                label="Kidney care",
-                question="What should I know about chronic kidney disease?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Kidney coverage",
-                question="What kidney-related care is covered under my plan?",
-                intent="benefits",
-            ),
-        ],
-        "heart-disease": [
-            SuggestedQuestion(
-                label="Heart disease care",
-                question="What should I know about heart disease and warning signs?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Cardiology coverage",
-                question="What cardiology care is covered under my plan?",
-                intent="benefits",
-            ),
-        ],
-        "osteoporosis": [
-            SuggestedQuestion(
-                label="Bone health",
-                question="What should I know about osteoporosis?",
-                intent="condition_info",
-            ),
-            SuggestedQuestion(
-                label="Bone medicines",
-                question="What should I know about osteoporosis medications?",
-                intent="medication",
-            ),
-        ],
-        "upper-respiratory-infection": [
-            SuggestedQuestion(
-                label="Respiratory symptoms",
-                question="What should I know about upper respiratory infections?",
-                intent="condition_info",
-            )
-        ],
-        "dental-oral-health": [
-            SuggestedQuestion(
-                label="Dental coverage",
-                question="What dental or oral health care may be covered under my plan?",
-                intent="benefits",
-            )
-        ],
-        "sleep-apnea": [
-            SuggestedQuestion(
-                label="Sleep apnea",
-                question="What should I know about sleep apnea?",
-                intent="condition_info",
-            )
-        ],
-        "general-symptoms": [
-            SuggestedQuestion(
-                label="Symptoms",
-                question="What symptoms should I watch for, and when should I seek care?",
-                intent="condition_info",
-            )
-        ],
-    }
     for topic in topics:
-        questions.extend(topic_templates.get(topic, []))
+        questions.extend(SUGGESTED_QUESTIONS_BY_TOPIC.get(topic, []))
 
     if primary and not questions:
         questions.append(

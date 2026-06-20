@@ -12,6 +12,7 @@ Idempotent upserts throughout.
 from __future__ import annotations
 
 import csv
+import logging
 import os
 import random
 
@@ -20,6 +21,8 @@ from carenav.data import plans
 from carenav.data.db import pg_upsert as _upsert
 from carenav.data.db import session_scope
 from carenav.data.models import PlanNetwork, Provider
+
+logger = logging.getLogger(__name__)
 
 _SEED = 7
 
@@ -120,10 +123,21 @@ def run() -> dict[str, int]:
     if _have_real_file():
         providers = _parse_real_file(n_max)
         source = "nppes-file"
-        if not providers:  # file present but no rows matched filters
+        if not providers:
+            # The file is present but parsed to zero rows — usually a header-name mismatch
+            # or wrong state/taxonomy filters, NOT genuinely empty data. Warn loudly so this
+            # doesn't masquerade as a successful real-data load.
+            logger.warning(
+                "NPPES file %s parsed to 0 providers (check headers / nppes_states=%s / "
+                "taxonomy filters); falling back to synthetic providers.",
+                settings.nppes_file, settings.nppes_states,
+            )
             providers = _generate_synthetic(min(n_max, 300))
             source = "nppes-file-empty->synthetic"
     else:
+        logger.info(
+            "No NPPES file at %s; using synthetic providers.", settings.nppes_file
+        )
         providers = _generate_synthetic(min(n_max, 300))
         source = "synthetic-fallback"
 
