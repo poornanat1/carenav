@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from sqlalchemy import select
 
-from carenav.agents import resolve_member_ref
+from carenav.agents import resolve_member_ref, specialty_hint
 from carenav.agents.contracts import ProviderSearchInput, ProviderSearchOutput
 from carenav.agents.providers import provider_lookup_by_name, provider_search
 from carenav.api.members import load_member_summary, topic_label
@@ -20,10 +22,67 @@ from carenav.data.db import session_scope
 from carenav.data.models import Member
 from carenav.models import ModelGateway
 from carenav.orchestrator.state import ConfidenceBreakdown, TurnResult
-from carenav.orchestrator.turn import _tools_specialty
 from carenav.rag import retrieval
 from carenav.rag.agent import Citation, generate_grounded
+from carenav.rag.citations import format_citation
 from carenav.rag.retrieval import Hit
+
+# All profile answers carry full confidence (they're deterministic profile facts).
+_FULL_CONFIDENCE = ConfidenceBreakdown(
+    intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
+)
+_PROFILE_CITATION = format_citation("tool:member_profile")
+
+
+def _citations(hits: list[Hit]) -> list[Citation]:
+    return [Citation(h.chunk_id, h.title, h.source_url, h.section_path) for h in hits]
+
+
+def _ok_result(
+    *,
+    question: str,
+    answer: str,
+    citations: list[Citation],
+    gateway: ModelGateway,
+    intent: str = "member_profile",
+    tier_used: str = "small",
+    rag_answers=None,
+) -> TurnResult:
+    """A grounded, non-escalated profile/provider answer with the shared boilerplate filled."""
+    return TurnResult(
+        question=question,
+        intent=intent,
+        sub_questions=[question],
+        answer=answer,
+        citations=citations,
+        grounded=True,
+        escalated=False,
+        handoff=None,
+        confidence=_FULL_CONFIDENCE,
+        tier_used=tier_used,
+        safety_flag="none",
+        cost_usd=gateway.ledger.total_cost_usd,
+        rag_answers=rag_answers or [],
+    )
+
+
+def _escalated_result(question: str, intent: str, gateway: ModelGateway) -> TurnResult:
+    """A profile turn that can't be answered from data and must go to a human."""
+    return TurnResult(
+        question=question,
+        intent=intent,
+        sub_questions=[question],
+        answer="",
+        citations=[],
+        grounded=False,
+        escalated=True,
+        handoff=None,
+        confidence=ConfidenceBreakdown(intent_conf=1.0, tool_conf=0.0),
+        tier_used="human",
+        safety_flag="none",
+        cost_usd=gateway.ledger.total_cost_usd,
+        rag_answers=[],
+    )
 
 
 def _profile_hit(summary: MemberSummary) -> Hit:
@@ -80,24 +139,10 @@ def _profile_hit(summary: MemberSummary) -> Hit:
 def _fallback_profile_answer(question: str, hit: Hit, gateway: ModelGateway) -> TurnResult:
     answer = (
         "The selected member profile source does not show support for that profile claim. "
-        "[CHUNK:tool:member_profile]"
+        f"{_PROFILE_CITATION}"
     )
-    return TurnResult(
-        question=question,
-        intent="member_profile",
-        sub_questions=[question],
-        answer=answer,
-        citations=[Citation(hit.chunk_id, hit.title, hit.source_url, hit.section_path)],
-        grounded=True,
-        escalated=False,
-        handoff=None,
-        confidence=ConfidenceBreakdown(
-            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
-        ),
-        tier_used="small",
-        safety_flag="none",
-        cost_usd=gateway.ledger.total_cost_usd,
-        rag_answers=[],
+    return _ok_result(
+        question=question, answer=answer, citations=_citations([hit]), gateway=gateway
     )
 
 
@@ -110,23 +155,12 @@ def _profile_result(
     source_hits: list[Hit] | None = None,
     rag_answers=None,
 ) -> TurnResult:
-    hits = source_hits or [hit]
-    return TurnResult(
+    return _ok_result(
         question=question,
-        intent="member_profile",
-        sub_questions=[question],
         answer=answer,
-        citations=[Citation(h.chunk_id, h.title, h.source_url, h.section_path) for h in hits],
-        grounded=True,
-        escalated=False,
-        handoff=None,
-        confidence=ConfidenceBreakdown(
-            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
-        ),
-        tier_used="small",
-        safety_flag="none",
-        cost_usd=gateway.ledger.total_cost_usd,
-        rag_answers=rag_answers or [],
+        citations=_citations(source_hits or [hit]),
+        gateway=gateway,
+        rag_answers=rag_answers,
     )
 
 
@@ -136,7 +170,7 @@ def _member_plan_id(member_id: str) -> str | None:
 
 
 def _provider_search_for_member(question: str, plan_id: str | None) -> ProviderSearchOutput:
-    specialty = _tools_specialty(question)
+    specialty = specialty_hint(question)
     out = provider_search(
         ProviderSearchInput(
             specialty=specialty,
@@ -163,24 +197,9 @@ def _provider_recommendation_result(
     gateway: ModelGateway,
 ) -> TurnResult:
     out = _provider_search_for_member(question, plan_id)
-    specialty = _tools_specialty(question)
+    specialty = specialty_hint(question)
     if not out.providers:
-        conf = ConfidenceBreakdown(intent_conf=1.0, tool_conf=0.0)
-        return TurnResult(
-            question=question,
-            intent="provider_search",
-            sub_questions=[question],
-            answer="",
-            citations=[],
-            grounded=False,
-            escalated=True,
-            handoff=None,
-            confidence=conf,
-            tier_used="human",
-            safety_flag="none",
-            cost_usd=gateway.ledger.total_cost_usd,
-            rag_answers=[],
-        )
+        return _escalated_result(question, "provider_search", gateway)
 
     fallback_note = ""
     if specialty and not any(
@@ -211,22 +230,9 @@ def _provider_recommendation_result(
         Citation(f"tool:provider:{provider.npi}", provider.name, "", None)
         for provider in out.providers
     ]
-    return TurnResult(
-        question=question,
-        intent="provider_search",
-        sub_questions=[question],
-        answer=answer,
-        citations=citations,
-        grounded=True,
-        escalated=False,
-        handoff=None,
-        confidence=ConfidenceBreakdown(
-            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
-        ),
-        tier_used="none",
-        safety_flag="none",
-        cost_usd=gateway.ledger.total_cost_usd,
-        rag_answers=[],
+    return _ok_result(
+        question=question, answer=answer, citations=citations, gateway=gateway,
+        intent="provider_search", tier_used="none",
     )
 
 
@@ -262,23 +268,56 @@ def _provider_detail_result(
         f"{provider.name} is {article} {descriptor}{location_text} and {status}."
     )
     citations = [Citation(f"tool:provider:{provider.npi}", provider.name, "", None)]
-    return TurnResult(
-        question=question,
-        intent="provider_search",
-        sub_questions=[question],
-        answer=answer,
-        citations=citations,
-        grounded=True,
-        escalated=False,
-        handoff=None,
-        confidence=ConfidenceBreakdown(
-            intent_conf=1.0, retrieval_conf=1.0, tool_conf=1.0, self_eval=1.0
-        ),
-        tier_used="none",
-        safety_flag="none",
-        cost_usd=gateway.ledger.total_cost_usd,
-        rag_answers=[],
+    return _ok_result(
+        question=question, answer=answer, citations=citations, gateway=gateway,
+        intent="provider_search", tier_used="none",
     )
+
+
+@dataclass(frozen=True)
+class _MedicationRisk:
+    """A medication-specific safety signal the profile can surface, driven by data not code.
+
+    Adding a drug is a new entry here, not new branches in _risk_answer.
+    """
+
+    medication: str            # substring matched against summary.medications (lowercased)
+    augment: str               # extra retrieval terms to find the right label chunk
+    doc_marker: str            # substring identifying the drug in a retrieved hit's doc_id
+    text_marker: str           # substring confirming the hit is the relevant warning
+    aggravating_topic: str     # KB topic that raises the risk (e.g. "chronic kidney disease")
+    factor_label: str          # how the med is described ("inferred Metformin use")
+    aggravating_label: str     # how the topic is described ("a Chronic Kidney Disease signal")
+    warning: str               # the grounded warning sentences (the {cite} placeholder filled)
+
+
+_MEDICATION_RISKS: tuple[_MedicationRisk, ...] = (
+    _MedicationRisk(
+        medication="metformin",
+        augment="metformin lactic acidosis kidney impairment",
+        doc_marker="metformin",
+        text_marker="lactic acidosis",
+        aggravating_topic="chronic kidney disease",
+        factor_label="inferred Metformin use",
+        aggravating_label="a Chronic Kidney Disease profile signal",
+        warning=(
+            "Metformin carries a boxed warning for rare but serious lactic acidosis, and "
+            "risk is higher with kidney impairment. {cite} The label also says kidney "
+            "function is checked before and during treatment, and to seek care for symptoms "
+            "such as unusual muscle pain, trouble breathing, unusual sleepiness, or severe "
+            "stomach pain. {cite}"
+        ),
+    ),
+)
+
+
+def _matching_risk(summary: MemberSummary) -> _MedicationRisk | None:
+    """The first known medication-risk whose drug appears in the member's medications."""
+    meds = [m.lower() for m in summary.medications]
+    for risk in _MEDICATION_RISKS:
+        if any(risk.medication in m for m in meds):
+            return risk
+    return None
 
 
 def _risk_answer(
@@ -289,50 +328,40 @@ def _risk_answer(
     citation: str,
     topics: str,
 ) -> TurnResult:
+    risk = _matching_risk(summary) or _MEDICATION_RISKS[0]
     medication_hits = retrieval.retrieve(
-        question + " metformin lactic acidosis kidney impairment",
-        intent="medication",
-        k=3,
-        gateway=gateway,
+        f"{question} {risk.augment}", intent="medication", k=3, gateway=gateway
     )
-    metformin_hit = next(
+    label_hit = next(
         (
             candidate
             for candidate in medication_hits
-            if "metformin" in candidate.doc_id.lower()
-            and "lactic acidosis" in candidate.text.lower()
+            if risk.doc_marker in candidate.doc_id.lower()
+            and risk.text_marker in candidate.text.lower()
         ),
         None,
     )
-    has_metformin = any("metformin" in medication.lower() for medication in summary.medications)
-    has_ckd = any(topic.lower() == "chronic kidney disease" for topic in summary.kb_topics)
+    has_medication = any(risk.medication in m.lower() for m in summary.medications)
+    has_aggravating = any(t.lower() == risk.aggravating_topic for t in summary.kb_topics)
     profile_factors = []
-    if has_metformin:
-        profile_factors.append("inferred Metformin use")
-    if has_ckd:
-        profile_factors.append("a Chronic Kidney Disease profile signal")
+    if has_medication:
+        profile_factors.append(risk.factor_label)
+    if has_aggravating:
+        profile_factors.append(risk.aggravating_label)
     if not profile_factors:
         profile_factors.append(f"these visible KB topics: {topics}")
 
     name = summary.name.rstrip(".")
-    if metformin_hit:
-        risk_word = "does" if has_metformin and has_ckd else "may"
+    if label_hit:
+        risk_word = "does" if has_medication and has_aggravating else "may"
+        warning = risk.warning.format(cite=format_citation(label_hit.chunk_id))
         answer = (
-            f"{name} {risk_word} have a metformin-related lactic acidosis risk signal "
-            f"to review: the selected profile includes {', '.join(profile_factors)}. "
-            f"{citation} Metformin carries a boxed warning for rare but serious lactic "
-            f"acidosis, and risk is higher with kidney impairment. "
-            f"[CHUNK:{metformin_hit.chunk_id}] The label also says kidney function is "
-            f"checked before and during treatment, and to seek care for symptoms such as "
-            f"unusual muscle pain, trouble breathing, unusual sleepiness, or severe "
-            f"stomach pain. [CHUNK:{metformin_hit.chunk_id}]"
+            f"{name} {risk_word} have a medication risk signal to review: the selected "
+            f"profile includes {', '.join(profile_factors)}. {citation} {warning}"
         )
         return _profile_result(
-            question=question,
-            answer=answer,
-            hit=hit,
-            gateway=gateway,
-            source_hits=[hit, metformin_hit],
+            question=question, answer=answer, hit=hit, gateway=gateway,
+            source_hits=[hit, label_hit],
         )
 
     answer = (
@@ -342,90 +371,109 @@ def _risk_answer(
     return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
 
 
+def _summary_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
+    return (
+        f"{name} is a {summary.age}-year-old synthetic Synthea member on {summary.plan}. "
+        f"The selected profile maps to these KB topics: {topics}. "
+        f"Deductible progress is ${summary.deductible['used']:.0f} of "
+        f"${summary.deductible['total']:.0f}, and out-of-pocket progress is "
+        f"${summary.oop['used']:.0f} of ${summary.oop['total']:.0f}. {_PROFILE_CITATION}"
+    )
+
+
+def _conditions_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
+    return (
+        f"{name}'s loaded clinical conditions include: {conditions}. "
+        f"The selected profile maps to these KB topics: {topics}. {_PROFILE_CITATION}"
+    )
+
+
+def _coverage_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
+    deductible_remaining = max(summary.deductible["total"] - summary.deductible["used"], 0.0)
+    oop_remaining = max(summary.oop["total"] - summary.oop["used"], 0.0)
+    return (
+        f"{name} is enrolled in {summary.plan}. Deductible progress is "
+        f"${summary.deductible['used']:.0f} of ${summary.deductible['total']:.0f}, "
+        f"so ${deductible_remaining:.0f} remains. "
+        f"Out-of-pocket progress is ${summary.oop['used']:.0f} of "
+        f"${summary.oop['total']:.0f}, so ${oop_remaining:.0f} remains. {_PROFILE_CITATION}"
+    )
+
+
+def _claims_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
+    if summary.recent_claims:
+        claims = "; ".join(
+            f"{claim['description']} ({claim['status']}), member responsibility "
+            f"${claim['amount']:.2f}"
+            for claim in summary.recent_claims
+        )
+        return f"{name}'s recent claims are: {claims}. {_PROFILE_CITATION}"
+    return f"{name} has no recent claims loaded in this selected profile. {_PROFILE_CITATION}"
+
+
+def _medications_answer(name: str, summary: MemberSummary, topics: str, conditions: str) -> str:
+    return (
+        f"Medication topics inferred from {name}'s selected profile are: "
+        f"{', '.join(summary.medications)}. {_PROFILE_CITATION}"
+    )
+
+
+# kind -> text builder, for the slots that produce a plain string from the profile facts.
+# risk and specific_condition need extra context (retrieval / topic resolution) and are
+# handled out of band in _answer_profile_slot.
+_SLOT_ANSWERS = {
+    "summary": _summary_answer,
+    "conditions": _conditions_answer,
+    "coverage": _coverage_answer,
+    "claims": _claims_answer,
+    "medications": _medications_answer,
+}
+
+
+def _specific_condition_answer(
+    question: str, summary: MemberSummary, analysis: QueryAnalysis, gateway: ModelGateway,
+    name: str, topics: str, conditions: str,
+) -> str:
+    # Resolve the asked-about condition to a canonical topic. The analyzer slot is
+    # unreliable here — it has returned None ("does hilton have cancer") or a raw, unmapped
+    # word ("tumor"); resolve_condition_topic only trusts a value that maps to a real topic,
+    # then falls back to an LLM extractor (synonyms like "sugar") and a deterministic
+    # matcher, so a missing/garbled slot never becomes a false "No".
+    resolved = resolve_condition_topic(question, analysis.condition_topic, gateway)
+    asked = resolved or "that condition"
+    matched = {topic.lower(): topic for topic in summary.kb_topics}.get(asked.lower())
+    if matched:
+        return (
+            f"Yes. {name}'s selected profile has a {matched} profile signal. "
+            f"Loaded clinical conditions include: {conditions}. {_PROFILE_CITATION}"
+        )
+    return (
+        f"No loaded {asked} profile signal appears for {name}. "
+        f"The visible KB topics are: {topics}. {_PROFILE_CITATION}"
+    )
+
+
 def _answer_profile_slot(
     question: str, summary: MemberSummary, analysis: QueryAnalysis, hit: Hit, gateway: ModelGateway
 ) -> TurnResult | None:
-    query_type = analysis.kind
     name = summary.name.rstrip(".")
-    citation = "[CHUNK:tool:member_profile]"
     topics = ", ".join(summary.kb_topics) if summary.kb_topics else "none"
     conditions = (
         ", ".join(summary.conditions) if summary.conditions else "no loaded clinical conditions"
     )
 
-    if query_type == "summary":
-        answer = (
-            f"{name} is a {summary.age}-year-old synthetic Synthea member on {summary.plan}. "
-            f"The selected profile maps to these KB topics: {topics}. "
-            f"Deductible progress is ${summary.deductible['used']:.0f} of "
-            f"${summary.deductible['total']:.0f}, and out-of-pocket progress is "
-            f"${summary.oop['used']:.0f} of ${summary.oop['total']:.0f}. {citation}"
-        )
+    builder = _SLOT_ANSWERS.get(analysis.kind)
+    if builder:
+        answer = builder(name, summary, topics, conditions)
         return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
 
-    if query_type == "conditions":
-        answer = (
-            f"{name}'s loaded clinical conditions include: {conditions}. "
-            f"The selected profile maps to these KB topics: {topics}. {citation}"
+    if analysis.kind == "risk":
+        return _risk_answer(question, summary, hit, gateway, _PROFILE_CITATION, topics)
+
+    if analysis.kind == "specific_condition":
+        answer = _specific_condition_answer(
+            question, summary, analysis, gateway, name, topics, conditions
         )
-        return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
-
-    if query_type == "coverage":
-        deductible_remaining = max(
-            summary.deductible["total"] - summary.deductible["used"], 0.0
-        )
-        oop_remaining = max(summary.oop["total"] - summary.oop["used"], 0.0)
-        answer = (
-            f"{name} is enrolled in {summary.plan}. Deductible progress is "
-            f"${summary.deductible['used']:.0f} of ${summary.deductible['total']:.0f}, "
-            f"so ${deductible_remaining:.0f} remains. "
-            f"Out-of-pocket progress is ${summary.oop['used']:.0f} of "
-            f"${summary.oop['total']:.0f}, so ${oop_remaining:.0f} remains. {citation}"
-        )
-        return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
-
-    if query_type == "claims":
-        if summary.recent_claims:
-            claims = "; ".join(
-                f"{claim['description']} ({claim['status']}), member responsibility "
-                f"${claim['amount']:.2f}"
-                for claim in summary.recent_claims
-            )
-            answer = f"{name}'s recent claims are: {claims}. {citation}"
-        else:
-            answer = f"{name} has no recent claims loaded in this selected profile. {citation}"
-        return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
-
-    if query_type == "medications":
-        answer = (
-            f"Medication topics inferred from {name}'s selected profile are: "
-            f"{', '.join(summary.medications)}. {citation}"
-        )
-        return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
-
-    if query_type == "risk":
-        return _risk_answer(question, summary, hit, gateway, citation, topics)
-
-    if query_type == "specific_condition":
-        # Resolve the asked-about condition to a canonical topic. The analyzer slot is
-        # unreliable here — it has returned None ("does hilton have cancer") or a raw,
-        # unmapped word ("tumor"); resolve_condition_topic only trusts a value that maps to
-        # a real topic, then falls back to an LLM extractor (synonyms like "sugar") and a
-        # deterministic matcher, so a missing/garbled slot never becomes a false "No".
-        resolved = resolve_condition_topic(question, analysis.condition_topic, gateway)
-        asked = resolved or "that condition"
-        visible = {topic.lower(): topic for topic in summary.kb_topics}
-        matched = visible.get(asked.lower())
-        if matched:
-            answer = (
-                f"Yes. {name}'s selected profile has a {matched} profile signal. "
-                f"Loaded clinical conditions include: {conditions}. {citation}"
-            )
-        else:
-            answer = (
-                f"No loaded {asked} profile signal appears for {name}. "
-                f"The visible KB topics are: {topics}. {citation}"
-            )
         return _profile_result(question=question, answer=answer, hit=hit, gateway=gateway)
 
     return None

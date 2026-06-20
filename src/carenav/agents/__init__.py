@@ -18,11 +18,11 @@ from carenav.agents.contracts import (
     ProviderSearchOutput,
 )
 from carenav.agents.member import member_account
-from carenav.agents.providers import provider_search
+from carenav.agents.providers import provider_search, specialty_hint
 from carenav.agents.session import create_demo_member_ref, create_member_ref, resolve_member_ref
 
 __all__ = [
-    "member_account", "benefit_lookup", "claims_lookup", "provider_search",
+    "member_account", "benefit_lookup", "claims_lookup", "provider_search", "specialty_hint",
     "create_member_ref", "create_demo_member_ref", "resolve_member_ref",
     "MemberAccountInput", "MemberAccountOutput",
     "BenefitLookupInput", "BenefitLookupOutput",

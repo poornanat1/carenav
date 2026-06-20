@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from contextlib import contextmanager
 
 from sqlalchemy import false, select
@@ -18,6 +19,35 @@ SPECIALTY_TERMS: tuple[str, ...] = (
     "endocrinologist", "orthopedist", "orthopedic specialist", "neurologist", "oncologist",
     "ophthalmologist",
 )
+
+# Word-stem → canonical specialty label, for pulling a specialty hint out of free text
+# ("find a cardiologist" → "Cardiology"). The regex matches the stem; the value is the label.
+_SPECIALTY_STEMS: tuple[tuple[str, str], ...] = (
+    ("cardiolog", "Cardiology"),
+    ("dermatolog", "Dermatology"),
+    ("pediatric", "Pediatrics"),
+    ("oncolog", "Oncology"),
+    ("neurolog", "Neurology"),
+    ("endocrinolog", "Endocrinology"),
+    ("ophthalmolog", "Ophthalmology"),
+    ("family medicine", "Family Medicine"),
+    ("surg", "Surgery"),
+)
+_SPECIALTY_HINT_RE = re.compile(
+    r"\b(" + "|".join(stem for stem, _ in _SPECIALTY_STEMS) + r")\w*", re.IGNORECASE
+)
+
+
+def specialty_hint(question: str) -> str | None:
+    """Best-effort canonical specialty label named in the question, or None.
+
+    Used to seed a provider search; the search also filters loosely, so a miss here is fine.
+    """
+    m = _SPECIALTY_HINT_RE.search(question)
+    if not m:
+        return None
+    stem = m.group(1).lower()
+    return dict(_SPECIALTY_STEMS).get(stem, stem.capitalize())
 
 
 @contextmanager
