@@ -5,15 +5,12 @@ imported, docs/02). A Mistral API key backs `make data` and every retrieval, so 
 are always real. `mistral-embed` produces a fixed 1024-dim vector matching the pgvector
 column (`settings.embedding_dim`).
 
-The task-type labels below are retained for call-site symmetry but are no-ops: unlike
-Gemini, `mistral-embed` is a single symmetric model with no asymmetric document/query
-task types, so corpus chunks and queries are embedded identically.
+`mistral-embed` is a single symmetric model: corpus chunks and queries are embedded
+identically (no asymmetric document/query task types), so embed_texts/embed_query differ
+only in batch shape.
 """
 
 from __future__ import annotations
-
-_DOCUMENT = "RETRIEVAL_DOCUMENT"
-_QUERY = "RETRIEVAL_QUERY"
 
 _gateway = None
 
@@ -40,9 +37,9 @@ def embed_texts(texts: list[str], gateway=None) -> list[list[float]]:
     """Embed a batch of corpus documents into `settings.embedding_dim`-length vectors."""
     if not texts:
         return []
-    return _get_gateway(gateway).embed(texts, task_type=_DOCUMENT)
+    return _get_gateway(gateway).embed(texts)
 
 
 def embed_query(text: str, gateway=None) -> list[float]:
-    """Embed a single query string (asymmetric task type vs corpus documents)."""
-    return _get_gateway(gateway).embed([text], task_type=_QUERY)[0]
+    """Embed a single query string (same symmetric model as corpus documents)."""
+    return _get_gateway(gateway).embed([text])[0]

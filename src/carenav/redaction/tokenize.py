@@ -61,22 +61,26 @@ def tokenize(text: str, spans: list[Span], pii_map: PiiMap) -> str:
     naturally ("[NAME_1] and [NAME_2]"); REPLACEMENT is applied right-to-left so earlier
     character offsets stay valid as the string is rewritten. Overlapping spans should
     already be merged by ``detect`` (one span per value); if any overlap slips through, the
-    right-to-left pass skips the later-overlapping one and still produces well-formed output.
+    earlier-starting span is kept and the overlapper is dropped before tokens are allocated,
+    so numbering and replacement stay consistent.
     """
     if not spans:
         return text
-    forward = sorted(spans, key=lambda s: s.start)
-    # Allocate tokens in reading order so numbering matches appearance.
-    for s in forward:
-        pii_map.token(s.type, text[s.start:s.end])
-    out = text
-    last_start = len(text) + 1
-    for s in reversed(forward):  # apply right-to-left to preserve offsets
-        if s.end > last_start:  # defensive: skip a span overlapping one already applied
+    # Keep one span per region: walking left-to-right, drop any span that overlaps the last
+    # kept one. Done before token allocation so a dropped span never consumes a token number.
+    kept: list[Span] = []
+    for s in sorted(spans, key=lambda s: s.start):
+        if kept and s.start < kept[-1].end:
             continue
+        kept.append(s)
+    # Allocate tokens in reading order so numbering matches appearance.
+    for s in kept:
+        pii_map.token(s.type, text[s.start:s.end])
+    # Apply right-to-left so earlier offsets stay valid as the string is rewritten.
+    out = text
+    for s in reversed(kept):
         tok = pii_map.token(s.type, text[s.start:s.end])
         out = out[:s.start] + tok + out[s.end:]
-        last_start = s.start
     return out
 
 

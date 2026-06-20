@@ -21,6 +21,8 @@ No application code outside this package may import mistralai / any provider SDK
 
 from __future__ import annotations
 
+import json
+import logging
 import time
 from dataclasses import dataclass, field
 
@@ -28,6 +30,16 @@ import httpx
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
 from carenav.config import settings
+
+logger = logging.getLogger(__name__)
+
+
+class TransientModelError(RuntimeError):
+    """A retryable provider error. Carries the HTTP status so _is_transient can inspect it."""
+
+    def __init__(self, message: str, *, code: int | None = None) -> None:
+        super().__init__(message)
+        self.code = code
 
 
 def _is_transient(exc: BaseException) -> bool:
@@ -45,18 +57,23 @@ _retry_transient = retry(
     reraise=True,
 )
 
-# Per-million-token USD prices for cost capture. Keyed by model; unlisted models fall
-# back to _DEFAULT_PRICE. Approximate public Mistral pricing — update as it changes.
-_PRICES: dict[str, tuple[float, float]] = {  # model -> (input_per_mtok, output_per_mtok)
-    "mistral-small-latest": (0.10, 0.30),
-    "mistral-large-latest": (2.00, 6.00),
-    "mistral-embed": (0.10, 0.0),
-}
-_DEFAULT_PRICE = (0.10, 0.30)
+# Models we've already warned about missing a price entry — warn once, not per call.
+_unpriced_warned: set[str] = set()
 
 
 def _price_for(model: str) -> tuple[float, float]:
-    return _PRICES.get(model, _DEFAULT_PRICE)
+    price = settings.model_prices.get(model)
+    if price is None:
+        if model not in _unpriced_warned:
+            logger.warning(
+                "No price entry for model %r; cost capture uses model_price_default %s. "
+                "Add it to settings.model_prices.",
+                model,
+                settings.model_price_default,
+            )
+            _unpriced_warned.add(model)
+        return settings.model_price_default
+    return price
 
 
 def _cost_usd(model: str, in_tok: int, out_tok: int) -> float:
@@ -74,7 +91,7 @@ class ModelCall:
     output_tokens: int
     cost_usd: float
     latency_s: float
-    backend: str  # "mistral-apikey" | "stub"
+    backend: str  # "fireworks-apikey" | "mistral-apikey" | "stub"
 
 
 @dataclass
@@ -213,17 +230,24 @@ class ModelGateway:
         if not settings.fireworks_api_key:
             raise RuntimeError("FIREWORKS_API_KEY required for Fireworks model calls")
         payload = {"model": model, "messages": messages}
-        resp = httpx.post(
-            f"{settings.fireworks_api_base.rstrip('/')}/inference/v1/chat/completions",
-            headers={
-                "Authorization": f"Bearer {settings.fireworks_api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=settings.model_request_timeout_s,
-        )
+        try:
+            resp = httpx.post(
+                f"{settings.fireworks_api_base.rstrip('/')}/inference/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {settings.fireworks_api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=settings.model_request_timeout_s,
+            )
+        except httpx.TimeoutException as exc:
+            # A request timeout is transient — surface it as 504 so the backoff retries.
+            raise TransientModelError(f"Fireworks chat timed out: {exc}", code=504) from exc
         if resp.status_code >= 400:
-            raise RuntimeError(f"Fireworks chat failed ({resp.status_code}): {resp.text[:500]}")
+            msg = f"Fireworks chat failed ({resp.status_code}): {resp.text[:500]}"
+            # Carry the status code so _is_transient decides: 429/5xx retry with backoff;
+            # 4xx (auth/bad-request) raises through immediately (not in the transient set).
+            raise TransientModelError(msg, code=resp.status_code)
         body = resp.json()
         text = body["choices"][0]["message"].get("content") or ""
         usage = body.get("usage") or {}
@@ -263,8 +287,13 @@ class ModelGateway:
                 spans, in_tok, out_tok, latency = self._fireworks_classify_pii(text, model)
             else:
                 spans, in_tok, out_tok, latency = self._mistral_classify_pii(text, model)
-        except Exception:
-            return None  # fail safe: detector unavailable, do NOT report "no PII"
+        except _PII_DETECTOR_UNAVAILABLE as exc:
+            # Fail safe: a network/HTTP/parse failure means the detector is unavailable, so
+            # the caller falls back to spaCy+regex — never "no PII found". A programming
+            # error (e.g. a bug in span resolution) is NOT in this set and propagates loudly
+            # so it can't masquerade as graceful degradation of a PHI gate.
+            logger.warning("PII classifier unavailable (%s): %s", type(exc).__name__, exc)
+            return None
         self.ledger.record(
             ModelCall(
                 model=model,
@@ -315,20 +344,21 @@ class ModelGateway:
 
     # --- embeddings -----------------------------------------------------------
 
-    def embed(self, texts: list[str], *, task_type: str) -> list[list[float]]:
-        """Embed texts at the configured embedding model.
+    def embed(self, texts: list[str]) -> list[list[float]]:
+        """Embed texts at the configured embedding model (`mistral-embed`, 1024-dim).
 
-        Returns vectors; records one ModelCall for the batch. Raises if no real backend
-        is configured (the RAG layer owns the offline fallback, not the gateway).
-
-        `task_type` (RETRIEVAL_DOCUMENT vs RETRIEVAL_QUERY) is accepted for caller
-        compatibility but is a no-op: `mistral-embed` is a single symmetric model with a
-        fixed 1024-dim output (no asymmetric task types, no dimension truncation).
+        Returns vectors; records one ModelCall for the batch. Embeddings are always real:
+        `mistral-embed` is symmetric (documents and queries embed identically), so there is
+        no document/query task-type distinction. Raises if no Mistral key is configured —
+        embeddings require Mistral regardless of the generation provider (docs/06).
         """
         if not texts:
             return []
         if not settings.mistral_api_key:
-            raise RuntimeError("ModelGateway.embed called with no Mistral backend configured")
+            raise RuntimeError(
+                "Embeddings require MISTRAL_API_KEY (mistral-embed), independent of "
+                "MODEL_PROVIDER. Set MISTRAL_API_KEY to run retrieval/ingest."
+            )
 
         t0 = time.monotonic()
         out = self._mistral_embed(texts)
@@ -368,6 +398,36 @@ class ModelGateway:
 
 # --- PII span parsing ----------------------------------------------------------------
 
+def _provider_error_types() -> tuple[type[BaseException], ...]:
+    """Provider-SDK error base(s), resolved lazily so the SDK stays import-isolated here.
+
+    The Mistral SDK raises its own ``MistralError`` (e.g. a 400 invalid-model / auth error);
+    those mean the detector is unavailable and must fail safe, not crash the request.
+    """
+    try:
+        from mistralai.models.sdkerror import SDKError as MistralError
+    except ImportError:
+        try:
+            from mistralai.client.errors.sdkerror import MistralError
+        except ImportError:
+            return ()
+    return (MistralError,)
+
+
+# Exceptions that mean "the PII detector could not produce a result" (network down, HTTP
+# error, provider SDK error, malformed/garbage model output). classify_pii catches THESE and
+# fails safe to the spaCy+regex fallback. Anything outside this set (e.g. an AttributeError
+# from a real bug in span resolution) propagates so a code defect can't silently disable the
+# gate.
+_PII_DETECTOR_UNAVAILABLE = (
+    httpx.HTTPError,
+    TransientModelError,
+    json.JSONDecodeError,
+    ConnectionError,
+    TimeoutError,
+    *_provider_error_types(),
+)
+
 _PII_LABELS = frozenset({"NAME", "DOB", "ADDRESS", "PROVIDER_NAME"})
 
 
@@ -382,8 +442,6 @@ def _parse_pii_spans(raw: str, text: str | int) -> list[dict]:
     are dropped rather than trusted. Raises on totally unparseable JSON so the caller's
     try/except treats it as detector-unavailable (fail safe, not "no PII").
     """
-    import json
-
     source_text = "" if isinstance(text, int) else text
     text_len = text if isinstance(text, int) else len(text)
     data = json.loads(raw)
