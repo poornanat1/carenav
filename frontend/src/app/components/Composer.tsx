@@ -1,15 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Send, ArrowUp } from 'lucide-react';
 import type { Member, SuggestedQuestion } from './types';
-
-const INTENT_STYLE: Record<string, { border: string; bg: string; text: string }> = {
-  member_profile: { border: 'var(--cn-border)', bg: 'var(--cn-surface)', text: 'var(--cn-text)' },
-  medication: { border: 'rgba(31,122,90,0.3)',  bg: 'var(--cn-accent-soft)',  text: 'var(--cn-accent-strong)' },
-  benefits:   { border: 'rgba(39,107,143,0.28)', bg: 'var(--cn-info-soft)',  text: 'var(--cn-info)' },
-  claims:     { border: 'rgba(140,100,40,0.3)',  bg: 'rgba(140,100,40,0.06)', text: 'var(--cn-warn)' },
-  providers:  { border: 'rgba(110,60,130,0.3)',  bg: 'rgba(110,60,130,0.05)', text: '#70418a' },
-  safety:     { border: 'rgba(180,35,47,0.3)',   bg: 'var(--cn-danger-soft)',  text: 'var(--cn-danger)' },
-};
+import { INTENT_STYLE } from './intentStyles';
 
 type Props = {
   member: Member | null;
