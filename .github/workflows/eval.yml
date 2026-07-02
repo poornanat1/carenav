@@ -1,0 +1,104 @@
+name: Eval gates
+
+# The golden CUJ suite (docs/09): real models + a seeded Postgres. Runs nightly, on
+# demand, on pushes to main, and on PRs labeled `run-eval` — each run spends real model
+# quota, so it is not on by default for every PR. A gate trip (missed-escalation > 0 or
+# PII-leak > 0) or a soft-threshold miss fails the job via `make eval`'s exit code.
+#
+# Secrets required: FIREWORKS_API_KEY (generation), MISTRAL_API_KEY (embeddings).
+# Optional repo variable: PII_MODEL (fine-tuned detector route; field + regex layers
+# carry the PII gate without it).
+#
+# The seeded database is cached as a pg_dump keyed by the data-pipeline sources, so the
+# expensive cold path (Synthea generation + KB embedding spend) runs only when the
+# pipeline changes.
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # nightly
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, synchronize, reopened, labeled]
+
+jobs:
+  eval:
+    if: >-
+      github.event_name != 'pull_request' ||
+      contains(github.event.pull_request.labels.*.name, 'run-eval')
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: carenav
+          POSTGRES_PASSWORD: carenav
+          POSTGRES_DB: carenav
+        ports:
+          - "5433:5432"
+        options: >-
+          --health-cmd "pg_isready -U carenav"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql+psycopg://carenav:carenav@localhost:5433/carenav
+      PGPASSWORD: carenav
+      FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
+      MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+      PII_MODEL: ${{ vars.PII_MODEL }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Restore seeded-database cache
+        id: dbcache
+        uses: actions/cache@v4
+        with:
+          path: data_artifacts/db.dump
+          key: carenav-data-${{ hashFiles('src/carenav/data/**', 'src/carenav/rag/**', 'scripts/run_synthea.sh', 'scripts/generate_condition_index.py') }}
+
+      - name: Load cached database
+        if: steps.dbcache.outputs.cache-hit == 'true'
+        run: |
+          pg_restore --no-owner -h localhost -p 5433 -U carenav -d carenav data_artifacts/db.dump
+
+      - name: Seed database (cold path — Synthea + full data pipeline)
+        if: steps.dbcache.outputs.cache-hit != 'true'
+        run: |
+          bash scripts/run_synthea.sh 200
+          make data
+          pg_dump -Fc -h localhost -p 5433 -U carenav -d carenav -f data_artifacts/db.dump
+
+      - name: Preflight (fixtures, member resolution, backend)
+        run: make eval-check
+
+      - name: Run the golden CUJ suite
+        run: make eval
+
+      - name: Publish report to job summary
+        if: always()
+        run: |
+          if [ -f data_artifacts/eval/report.md ]; then
+            cat data_artifacts/eval/report.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload report artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-report
+          path: data_artifacts/eval/
+          if-no-files-found: ignore
