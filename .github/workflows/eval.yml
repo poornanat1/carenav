@@ -48,6 +48,13 @@ jobs:
       FIREWORKS_API_KEY: ${{ secrets.FIREWORKS_API_KEY }}
       MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
       PII_MODEL: ${{ vars.PII_MODEL }}
+      # Mirror the production provider setup: generation on Mistral, PII LoRA on
+      # Fireworks. Without these the config falls back to Fireworks default routes,
+      # which are not deployed — generation 404s and the missed-escalation gate
+      # (correctly) trips on the classifier-dependent emergent case.
+      MODEL_PROVIDER: mistral
+      MODEL_SMALL: mistral-small-latest
+      MODEL_FRONTIER: mistral-large-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -81,6 +88,23 @@ jobs:
           bash scripts/run_synthea.sh 200
           make data
           pg_dump -Fc -h localhost -p 5433 -U carenav -d carenav -f data_artifacts/db.dump
+
+      - name: Warm the PII detector deployment (scales to zero when idle)
+        if: env.PII_MODEL != ''
+        run: |
+          for i in $(seq 1 36); do
+            code=$(curl -s -o /tmp/pii-warm.json -w "%{http_code}" \
+              https://api.fireworks.ai/inference/v1/chat/completions \
+              -H "Authorization: Bearer ${FIREWORKS_API_KEY}" \
+              -H "Content-Type: application/json" \
+              -d "{\"model\": \"${PII_MODEL}\", \"max_tokens\": 8, \"messages\": [{\"role\": \"user\", \"content\": \"warm-up\"}]}")
+            if [ "$code" = "200" ]; then echo "PII deployment ready"; exit 0; fi
+            echo "waiting for PII deployment (HTTP $code, attempt $i/36)"; sleep 10
+          done
+          echo "PII deployment did not become ready — failing rather than risking a"
+          echo "cold-classifier PII-leak gate trip. Unset the PII_MODEL repo variable"
+          echo "to run on the field+regex layers only."
+          exit 1
 
       - name: Preflight (fixtures, member resolution, backend)
         run: make eval-check
