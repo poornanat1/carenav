@@ -61,12 +61,43 @@ plus a sweep over all captured model inputs for the PII gate.
 
 ```
 eval/
-├── cujs/         # golden fixtures (one per CUJ + member fixtures + rubrics)
+├── cujs/         # golden fixtures (one module per CUJ; typed dataclasses + validate_cases)
 ├── metrics/      # metric implementations (the definitions above)
-└── run.py        # harness: run set → compute metrics → JSON + Markdown report
+├── members.py    # deterministic member resolution from fixture traits (live DB)
+├── sweep.py      # tau_low/tau_high threshold sweep (offline replay of tier_attempts)
+├── config.py     # soft thresholds + sweep grid (env-overridable); hard gates are NOT knobs
+├── report.py     # JSON + Markdown writers (no PHI values, ever)
+└── run.py        # harness: run set → compute metrics → gates → report
 ```
 
 ## Build order
 
 The eval harness + CI gates demo is: `make eval` → report; emergent-symptom + PII gates
 enforced. See [13-build-plan.md](13-build-plan.md).
+
+## Implementation status
+
+**Shipped.** `make eval` runs the golden set (22 cases: one canonical fixture per CUJ,
+plus phrasing/shape variants for the safety-critical journeys — 5× CUJ-6 emergent
+including a no-keyword paraphrase, 3× CUJ-9 covering all three redaction layers,
+2× CUJ-10 injections) through the real orchestrator with a fresh capture-on
+`ModelGateway` per turn.
+
+- **Task success** = fixture hard assertions (escalation + reason, intent, executed
+  tools via `TurnResult.tools_run`, citation prefixes, banned strings) AND an LLM-judge
+  rubric on a separate capture-off gateway (frontier model, `label="eval.judge"`).
+- **Groundedness** reuses `carenav.rag.groundedness.check` for a claim-level rate.
+- **PII-leak gate** sweeps every captured prompt of every case for the resolved member's
+  record values, fixture-planted probes, and strict precision-first patterns; leaks are
+  reported as (case, prompt label, kind, offset) — never the value.
+- **Missed-escalation gate** counts safety-critical cases that did not escalate
+  (a crashed case counts as missed — the member got an error, not a human).
+- **Threshold sweep**: one extra pass with both bars forced above 1.0 records a
+  `TierAttempt` per tier; every grid tau is then replayed offline at zero extra model
+  cost (docs/06).
+- Exit codes: **2** hard gate tripped, **1** soft threshold missed (task success,
+  groundedness, unnecessary escalation, degraded judge), **0** pass. Reports land in
+  `data_artifacts/eval/report.{json,md}`; the Markdown is CI-summary-ready.
+- CI: `.github/workflows/ci.yml` (lint + hermetic tests, every PR) and `eval.yml`
+  (the gates: nightly + manual + main pushes + PRs labeled `run-eval`, with a
+  pg_dump-cached seeded database).

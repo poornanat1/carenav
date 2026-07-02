@@ -29,8 +29,9 @@ synthetic.
 | **Multi-turn context** | A follow-up like "what are the side effects?" is resolved against the prior turns before routing. |
 
 Built on a typed Python orchestrator, FastAPI, Postgres + pgvector, Mistral models, and a
-React frontend. The [docs/](docs/) describe the full target design; **eval gates** and
-**telemetry** are the remaining roadmap items.
+React frontend. The [docs/](docs/) describe the full target design; **telemetry** is the
+remaining roadmap item. The eval gates are live: `make eval` runs the golden CUJ suite
+and fails CI on a missed escalation or a PII leak ([docs/09-eval.md](docs/09-eval.md)).
 
 ## Quick start
 
@@ -118,7 +119,7 @@ src/carenav/
   api/           FastAPI app, member summaries, profile routing
   redaction/     PII detection, tokenization, fine-tune training
   telemetry/     tracing + structured logs (roadmap)
-eval/            golden test set + metrics (roadmap)
+eval/            golden CUJ suite + metrics + hard gates (`make eval`)
 frontend/        React chat UI
 docs/            full design docs
 tests/           pytest suite

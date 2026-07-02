@@ -1,7 +1,7 @@
 .DEFAULT_GOAL := help
 .PHONY: help install lock db-up db-down data data-synthea data-nppes data-benefits \
-        condition-index data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval run \
-        frontend-install frontend frontend-build test lint fmt clean
+        condition-index data-kb pii-corpus train-pii debug-mistral-ft eval-pii eval \
+        eval-check run frontend-install frontend frontend-build test lint fmt clean
 
 # Run python through the venv if present, else system.
 PY ?= $(shell test -x .venv/bin/python && echo .venv/bin/python || echo python3)
@@ -55,9 +55,12 @@ debug-mistral-ft: ## Print a redacted Mistral fine-tuning diagnostic (no POST un
 eval-pii: ## Score the PII detector on the held-out split (P/R/F1 per entity)
 	$(PY) -m eval.pii.evaluate
 
-# ---- later stages ----
-eval: ## Run the golden CUJ eval suite
-	$(PY) -m eval.run
+# ---- golden CUJ eval suite (docs/09) ----
+eval: ## Run the golden CUJ suite: metrics + gates + tau sweep + report (EVAL_ARGS=...)
+	$(PY) -m eval.run $(EVAL_ARGS)
+
+eval-check: ## Preflight the eval: fixtures, member resolution, backend (no model spend)
+	$(PY) -m eval.run --check
 
 run: ## Serve the FastAPI turn endpoint
 	$(PY) -m uvicorn carenav.api.app:app --reload --host 0.0.0.0 --port 8000
