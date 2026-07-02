@@ -231,19 +231,3 @@ export function CitationChips({ citations }: { citations: Citation[] }) {
     </div>
   );
 }
-
-export function MetaPill({
-  children, bg, color, border,
-}: { children: React.ReactNode; bg: string; color: string; border: string }) {
-  return (
-    <div
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: 4,
-        padding: '2px 8px', borderRadius: 4, background: bg,
-        border: `1px solid ${border}`,
-      }}
-    >
-      <span style={{ fontSize: 10, fontFamily: 'var(--font-mono)', color }}>{children}</span>
-    </div>
-  );
-}

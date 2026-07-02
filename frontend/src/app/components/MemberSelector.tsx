@@ -66,9 +66,9 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
                 width: 300,
                 minWidth: 300,
                 border: isSelected
-                  ? '1.5px solid var(--cn-info)'
+                  ? '1.5px solid var(--cn-accent)'
                   : '1.5px solid var(--cn-border)',
-                background: isSelected ? 'var(--cn-info-soft)' : 'var(--cn-card-strong)',
+                background: isSelected ? 'var(--cn-accent-soft)' : 'var(--cn-card-strong)',
                 borderRadius: 7,
                 padding: '9px 13px',
                 cursor: 'pointer',
@@ -79,14 +79,14 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               }}
               onMouseEnter={e => {
                 if (!isSelected) {
-                  e.currentTarget.style.borderColor = 'var(--cn-info)';
+                  e.currentTarget.style.borderColor = 'var(--cn-accent)';
                   e.currentTarget.style.background = 'var(--cn-card)';
                 }
               }}
               onMouseLeave={e => {
                 if (!isSelected) {
                   e.currentTarget.style.borderColor = 'var(--cn-border)';
-                  e.currentTarget.style.background = 'var(--cn-card)';
+                  e.currentTarget.style.background = 'var(--cn-card-strong)';
                 }
               }}
             >
@@ -104,7 +104,7 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               <div
                 style={{
                   fontSize: 10,
-                  color: isSelected ? 'var(--cn-info)' : 'var(--cn-muted)',
+                  color: isSelected ? 'var(--cn-accent-strong)' : 'var(--cn-muted)',
                   fontFamily: 'var(--font-mono)',
                   marginTop: 2,
                 }}

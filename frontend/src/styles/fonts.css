@@ -5,17 +5,19 @@
   --font-mono: 'DM Mono', 'Courier New', monospace;
   --font-display: 'Barlow', system-ui, sans-serif;
 
-  --cn-bg: #f4f7f2;
-  --cn-panel: #e7efe8;
+  /* Canvas sits a step darker than the white cards so the answer surface reads as the
+     primary layer instead of blending into the background. */
+  --cn-bg: #edf1ea;
+  --cn-panel: #e4ece4;
   --cn-card: #fbfdf9;
   --cn-card-strong: #ffffff;
-  --cn-ink: #17211b;
-  --cn-text: #26342c;
-  --cn-muted: #5d6a61;
+  --cn-ink: #141d17;
+  --cn-text: #1f2b23;
+  --cn-muted: #4f5c53;
   /* Darkened from #7a857d to clear WCAG AA (4.5:1) on the light card surfaces, where it's
-     used for timestamps, metadata, chunk ids, and secondary text. */
-  --cn-subtle: #697469;
-  --cn-border: rgba(23, 33, 27, 0.14);
+     used for timestamps, metadata, and secondary text. */
+  --cn-subtle: #5d6960;
+  --cn-border: rgba(23, 33, 27, 0.18);
   --cn-border-soft: rgba(23, 33, 27, 0.08);
   --cn-surface: rgba(255, 255, 255, 0.48);
   --cn-accent: #1f7a5a;
@@ -34,6 +36,6 @@
 
 body {
   font-family: var(--font-sans);
-  font-weight: 300;
+  font-weight: 400;
   background: var(--cn-bg);
 }

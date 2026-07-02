@@ -11,7 +11,7 @@ body,
 
 body {
   font-family: var(--font-sans);
-  font-weight: 300;
+  font-weight: 400;
   overflow: hidden;
   /* Prevent iOS Safari from auto-inflating font sizes in landscape. */
   -webkit-text-size-adjust: 100%;

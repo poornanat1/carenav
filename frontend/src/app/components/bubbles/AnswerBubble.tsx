@@ -1,6 +1,6 @@
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import type { Message } from '../types';
-import { CitationChips, labelStyle, MetaPill, renderAnswer, severityOf } from './shared';
+import { CitationChips, labelStyle, renderAnswer, severityOf } from './shared';
 
 export function AnswerBubble({ msg }: { msg: Message }) {
   const r = msg.response;
@@ -32,7 +32,7 @@ export function AnswerBubble({ msg }: { msg: Message }) {
         )}
         <div
           style={{
-            fontSize: 14, color: 'var(--cn-text)',
+            fontSize: 15, color: 'var(--cn-ink)',
             fontFamily: 'var(--font-sans)', fontWeight: 400,
             lineHeight: 1.7, whiteSpace: 'pre-wrap',
           }}
@@ -49,37 +49,31 @@ export function AnswerBubble({ msg }: { msg: Message }) {
         {r && (
           <div
             style={{
-              marginTop: 11, paddingTop: 10,
+              marginTop: 12, paddingTop: 10,
               borderTop: '1px solid var(--cn-border-soft)',
-              display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+              display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap',
+              fontSize: 10, fontFamily: 'var(--font-mono)', color: 'var(--cn-subtle)',
             }}
           >
-            <MetaPill
-              bg={r.grounded ? 'var(--cn-info-soft)' : 'var(--cn-surface)'}
-              color={r.grounded ? 'var(--cn-info)' : 'var(--cn-subtle)'}
-              border={r.grounded ? 'rgba(39,107,143,0.25)' : 'var(--cn-border)'}
+            {/* Telemetry stays one quiet line so the answer owns the bubble; it only takes
+                color when a signal needs attention (ungrounded, low confidence). */}
+            <span
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 3,
+                color: r.grounded ? 'var(--cn-accent-strong)' : 'var(--cn-warn)',
+              }}
             >
-              <span style={{ display: 'flex', alignItems: 'center', gap: 3 }}>
-                {r.grounded ? <CheckCircle2 size={9} /> : <AlertCircle size={9} />}
-                {r.grounded ? 'Grounded' : 'Ungrounded'}
-              </span>
-            </MetaPill>
-
-            <MetaPill bg="var(--cn-surface)" color="var(--cn-muted)" border="var(--cn-border-soft)">
-              {r.tier_used}
-            </MetaPill>
-
-            <MetaPill
-              bg={r.confidence >= 0.8 ? 'var(--cn-info-soft)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.1)' : 'var(--cn-danger-soft)'}
-              color={r.confidence >= 0.8 ? 'var(--cn-info)' : r.confidence >= 0.65 ? 'var(--cn-warn)' : 'var(--cn-danger)'}
-              border={r.confidence >= 0.8 ? 'rgba(39,107,143,0.22)' : r.confidence >= 0.65 ? 'rgba(149,106,22,0.22)' : 'rgba(180,35,47,0.2)'}
-            >
+              {r.grounded ? <CheckCircle2 size={10} /> : <AlertCircle size={10} />}
+              {r.grounded ? 'Grounded' : 'Ungrounded'}
+            </span>
+            <span aria-hidden>·</span>
+            <span>{r.tier_used}</span>
+            <span aria-hidden>·</span>
+            <span style={{ color: r.confidence < 0.65 ? 'var(--cn-danger)' : undefined }}>
               {Math.round(r.confidence * 100)}% confidence
-            </MetaPill>
-
-            <MetaPill bg="var(--cn-surface)" color="var(--cn-subtle)" border="var(--cn-border-soft)">
-              ${r.cost_usd.toFixed(5)}
-            </MetaPill>
+            </span>
+            <span aria-hidden>·</span>
+            <span>${r.cost_usd.toFixed(5)}</span>
           </div>
         )}
       </div>

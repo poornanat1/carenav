@@ -26,16 +26,18 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
     { id: 'system', label: 'System' },
   ];
 
+  // The panel shares the chat's canvas color (not its own surface) so it reads as part
+  // of the same workspace rather than a bolted-on inspector.
   const asideStyle: React.CSSProperties = mobile
     ? {
         width: '100%', height: '88vh', maxHeight: '88vh',
         borderTopLeftRadius: 18, borderTopRightRadius: 18,
-        background: 'var(--cn-panel)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: 'var(--cn-bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         boxShadow: '0 -10px 40px rgba(23,33,27,0.2)',
       }
     : {
         width: 348, flexShrink: 0, borderLeft: '1px solid var(--cn-border)',
-        background: 'var(--cn-panel)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: 'var(--cn-bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       };
 
   const aside = (
@@ -51,11 +53,11 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
             key={tab.id}
             onClick={() => onTabChange(tab.id)}
             style={{
-              flex: 1, padding: mobile ? '13px 6px' : '10px 6px', background: 'none', border: 'none',
-              borderBottom: activeTab === tab.id ? '1.5px solid var(--cn-info)' : '1.5px solid transparent',
+              flex: 1, padding: mobile ? '13px 6px' : '11px 6px', background: 'none', border: 'none',
+              borderBottom: activeTab === tab.id ? '2px solid var(--cn-accent)' : '2px solid transparent',
               color: activeTab === tab.id ? 'var(--cn-ink)' : 'var(--cn-muted)',
-              fontSize: mobile ? 13 : 11, fontFamily: 'var(--font-mono)', fontWeight: activeTab === tab.id ? 500 : 400,
-              cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1, letterSpacing: '0.02em',
+              fontSize: mobile ? 13 : 12, fontFamily: 'var(--font-sans)', fontWeight: activeTab === tab.id ? 600 : 400,
+              cursor: 'pointer', transition: 'all 0.15s', marginBottom: -1,
             }}
             onMouseEnter={e => { if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--cn-ink)'; }}
             onMouseLeave={e => { if (activeTab !== tab.id) e.currentTarget.style.color = 'var(--cn-muted)'; }}
