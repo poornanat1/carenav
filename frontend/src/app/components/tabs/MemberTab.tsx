@@ -18,17 +18,18 @@ export function MemberTab({ member }: { member: Member | null }) {
 
   return (
     <div style={tabBodyStyle}>
+      {/* Quiet white card; the brand carries in the slim gradient rule, not a color slab. */}
       <div
         style={{
-          background: 'linear-gradient(135deg, #0f3527 0%, #0e6344 62%, #14707c 100%)',
-          borderRadius: 10, padding: '13px 15px', marginBottom: 16,
-          boxShadow: '0 6px 18px rgba(14,99,68,0.22)',
+          background: 'var(--cn-card-strong)', border: '1px solid var(--cn-border-soft)',
+          borderRadius: 10, marginBottom: 16, overflow: 'hidden', boxShadow: 'var(--cn-shadow)',
         }}
       >
-        <div style={{ fontWeight: 900, fontSize: 15, color: '#ffffff', fontFamily: 'var(--font-sans)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>{member.name}</div>
-        <div style={{ fontSize: 10, color: 'rgba(244,247,242,0.82)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
-        <div style={{ marginTop: 8, padding: '7px 9px', background: 'rgba(255,255,255,0.08)', borderRadius: 5 }}>
-          <p style={{ fontSize: 11, color: 'rgba(244,247,242,0.78)', fontFamily: 'var(--font-sans)', fontWeight: 400, margin: 0, lineHeight: 1.55 }}>{detail.note}</p>
+        <div style={{ height: 3, background: 'var(--cn-grad-brand)' }} />
+        <div style={{ padding: '12px 14px' }}>
+          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>{member.name}</div>
+          <div style={{ fontSize: 10, color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
+          <p style={{ fontSize: 11.5, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, margin: '9px 0 0', lineHeight: 1.55 }}>{detail.note}</p>
         </div>
       </div>
 
