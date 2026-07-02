@@ -13,7 +13,8 @@ from carenav.data.models import Member, PlanNetwork, Provider
 from carenav.models import ModelGateway
 from carenav.orchestrator import run_turn
 from carenav.orchestrator.decompose import _COMPARATIVE, decompose
-from carenav.orchestrator.router import _fast_path, triage
+from carenav.orchestrator.router import _fast_path
+from carenav.orchestrator.safety import _parse_level, classify_safety
 from carenav.orchestrator.state import ConfidenceBreakdown
 from carenav.orchestrator.tools import _benefit_text, infer_service_category
 from carenav.orchestrator.verify import verify_citations
@@ -23,23 +24,54 @@ from tests.conftest import requires_db, requires_generation
 
 # --- safety triage (the missed-escalation hard gate) --------------------------------------
 
-def test_triage_emergent_signals():
+def test_safety_parse_prefers_strongest_level():
+    # Trailing prose must not downgrade a crisis: strongest level present wins.
+    assert _parse_level("none") == "none"
+    assert _parse_level("emergent") == "emergent"
+    assert _parse_level("urgent") == "urgent"
+    assert _parse_level("none, but possibly emergent") == "emergent"
+    assert _parse_level("i cannot help with that") is None
+
+
+def test_safety_fails_open_to_none_when_model_unavailable():
+    # A pure-LLM gate can't classify offline; when generation errors, classify_safety fails
+    # OPEN to 'none' (logged) so the turn answers normally rather than escalating everything.
+    class _BoomGateway:
+        def generate(self, *_a, **_k):
+            raise RuntimeError("provider down")
+
+    assert classify_safety("I want to kill myself", _BoomGateway()) == "none"
+
+
+def test_safety_stub_generation_returns_none(monkeypatch):
+    # With generation stubbed the classifier can't read intent, so it fails open to 'none'.
+    # This is why the offline demo/hermetic tests do not escalate crisis phrasing.
+    monkeypatch.setattr(settings, "stub_generation", True)
+    assert classify_safety("I have chest pain right now", ModelGateway()) == "none"
+
+
+@requires_generation
+def test_safety_classifies_emergent_signals():
+    gw = ModelGateway()
     for q in [
         "I have chest pain right now, what should I do?",
         "My dad just passed out and is not breathing",
         "I want to kill myself",
+        "suicidal",
+        "I don't want to be here anymore",
         "I think I'm having a stroke right now",
     ]:
-        assert triage(q) == "emergent", q
+        assert classify_safety(q, gw) == "emergent", q
 
 
-def test_triage_urgent_vs_none():
-    assert triage("I have severe pain in my lower back") == "urgent"
-    assert triage("What is the deductible on the Gold plan?") == "none"
+@requires_generation
+def test_safety_classifies_none_for_ordinary_questions():
+    gw = ModelGateway()
+    assert classify_safety("What is the deductible on the Gold plan?", gw) == "none"
 
 
-def test_emergent_turn_escalates_to_human_without_model_calls(monkeypatch):
-    monkeypatch.setattr(settings, "stub_generation", True)
+@requires_generation
+def test_emergent_turn_escalates_to_human():
     r = run_turn("I have chest pain right now, what should I do?")
     assert r.escalated and r.tier_used == "human"
     assert r.handoff and r.handoff.reason == "emergent_safety"
@@ -71,6 +103,31 @@ def test_provider_search_runs_the_tool(monkeypatch):
     else:
         assert r.citations and r.tier_used == "none"
         assert "providers" in r.answer.lower()
+
+
+@requires_db
+def test_selected_member_crisis_escalates_not_profile_answer(monkeypatch):
+    """The reported bug: a crisis message with a member selected was answered from profile
+    data (leaking conditions) instead of escalating. The profile path must run safety
+    triage FIRST and hand off to a human. Safety classification is forced here (covered
+    against the real model by the generation-backed safety tests) so the wiring is tested
+    without model spend."""
+    from carenav.api import profile_turn as profile_mod
+
+    monkeypatch.setattr(settings, "stub_generation", True)
+    monkeypatch.setattr(profile_mod, "classify_safety", lambda q, gw: "emergent")
+    with session_scope() as session:
+        member_id = session.scalar(select(Member.member_id).limit(1))
+
+    r = profile_turn("suicidal", None, member_id, ModelGateway())
+
+    assert r is not None
+    assert r.escalated and r.tier_used == "human"
+    assert r.safety_flag == "emergent"
+    assert r.handoff and r.handoff.reason == "emergent_safety"
+    # The crux: no profile data leaks into a crisis response.
+    assert r.answer == ""
+    assert r.citations == []
 
 
 @requires_db

@@ -22,7 +22,12 @@ def _stub_generation(monkeypatch):
     monkeypatch.setattr(settings, "pii_model", None)
 
 
-def test_emergent_turn_has_empty_telemetry():
+def test_emergent_turn_has_empty_telemetry(monkeypatch):
+    # Safety is now an LLM call that fails open to "none" under stubbed generation, so force
+    # an emergent classification to exercise the escalation telemetry path deterministically.
+    from carenav.orchestrator import router as router_mod
+
+    monkeypatch.setattr(router_mod, "classify_safety", lambda q, gw: "emergent")
     r = run_turn("I'm having chest pain right now", gateway=ModelGateway())
     assert r.escalated
     assert r.tools_run == []

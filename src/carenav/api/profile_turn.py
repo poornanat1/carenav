@@ -21,7 +21,13 @@ from carenav.data import condition_topics
 from carenav.data.db import session_scope
 from carenav.data.models import Member
 from carenav.models import ModelGateway
-from carenav.orchestrator.state import ConfidenceBreakdown, TurnResult
+from carenav.orchestrator.safety import EMERGENT, classify_safety
+from carenav.orchestrator.state import (
+    SAFETY_INTENT,
+    ConfidenceBreakdown,
+    HandoffPacket,
+    TurnResult,
+)
 from carenav.rag import retrieval
 from carenav.rag.agent import Citation, generate_grounded
 from carenav.rag.citations import format_citation
@@ -63,6 +69,36 @@ def _ok_result(
         safety_flag="none",
         cost_usd=gateway.ledger.total_cost_usd,
         rag_answers=rag_answers or [],
+    )
+
+
+def _emergent_result(question: str, gateway: ModelGateway) -> TurnResult:
+    """A crisis/emergency turn — escalate to a human, never answer from profile data.
+
+    Mirrors the general path's emergent handoff (orchestrator.turn) so a selected member
+    gets the same missed-escalation guarantee as an anonymous one. reason="emergent_safety"
+    matches the general path so the eval gate and API surface treat both identically.
+    """
+    return TurnResult(
+        question=question,
+        intent=SAFETY_INTENT,
+        sub_questions=[question],
+        answer="",
+        citations=[],
+        grounded=False,
+        escalated=True,
+        handoff=HandoffPacket(
+            redacted_summary=question,
+            suspected_intent=SAFETY_INTENT,
+            gathered=[],
+            reason="emergent_safety",
+            safety_flag=EMERGENT,
+        ),
+        confidence=ConfidenceBreakdown(intent_conf=1.0),
+        tier_used="human",
+        safety_flag=EMERGENT,
+        cost_usd=gateway.ledger.total_cost_usd,
+        rag_answers=[],
     )
 
 
@@ -497,6 +533,13 @@ def profile_turn(
     member_id = resolve_member_ref(member_ref) or member_id_hint
     if not member_id:
         return None
+
+    # Safety triage runs BEFORE any member data is loaded or answered. The former bug was
+    # that the profile path skipped triage entirely, so a crisis message ("suicidal") with a
+    # member selected was answered from profile data instead of escalating. A crisis gets a
+    # human handoff regardless of whether a member is selected.
+    if classify_safety(question, gateway) == EMERGENT:
+        return _emergent_result(question, gateway)
 
     summary = load_member_summary(member_id)
     if not summary:

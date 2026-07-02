@@ -1,7 +1,9 @@
 """FastAPI turn-endpoint tests via TestClient.
 
-/health is hermetic. /turn is exercised on an emergent turn (stubbed generation, no DB/LLM
-needed) to assert the escalation handoff serializes correctly through the response model.
+/health is hermetic. /turn is exercised on an emergent turn to assert the escalation
+handoff serializes correctly through the response model. Safety is now an LLM call that
+fails open offline, so the test forces an emergent classification (rather than relying on
+a stubbed model) to get a deterministic handoff to serialize.
 """
 
 from fastapi.testclient import TestClient
@@ -21,6 +23,11 @@ def test_health():
 
 def test_turn_emergent_escalates(monkeypatch):
     monkeypatch.setattr(settings, "stub_generation", True)
+    # Force an emergent classification so the handoff is deterministic (the LLM safety gate
+    # fails open to "none" under stubbed generation). The router path is the general path.
+    from carenav.orchestrator import router as router_mod
+
+    monkeypatch.setattr(router_mod, "classify_safety", lambda q, gw: "emergent")
     r = client.post("/turn", json={"question": "I have chest pain right now, what should I do?"})
     assert r.status_code == 200
     body = r.json()

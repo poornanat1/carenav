@@ -1,9 +1,10 @@
 """route node — safety triage + intent classification (docs/03 nodes 2+4).
 
-Three layers, cheapest first:
-  1. EMERGENT triage — deterministic keyword scan for can't-miss signals (chest pain,
-     stroke signs, suicide, anaphylaxis). The missed-escalation hard gate (docs/09) says
-     a false positive here is acceptable; a miss is not. Runs before anything else.
+Layers, cheapest first:
+  1. Safety triage — a small-LLM crisis/emergency classifier (orchestrator.safety). It
+     replaced the former keyword-regex scan, which matched by surface string and missed
+     paraphrases. The missed-escalation hard gate (docs/09) says a false positive here is
+     acceptable; a miss is not. Runs before anything else.
   2. Tier-0 keyword fast path — unambiguous intents skip the LLM entirely.
   3. Tier-1 LLM classify — one small-model call constrained to the router vocabulary.
 
@@ -16,37 +17,11 @@ import re
 
 from carenav.agents.providers import SPECIALTY_TERMS
 from carenav.models import ModelGateway
+from carenav.orchestrator.safety import EMERGENT, classify_safety
 from carenav.orchestrator.state import ALL_INTENTS, SAFETY_INTENT
 
 # Alternation of provider/specialty nouns, shared with api.query_analyzer via SPECIALTY_TERMS.
 _SPECIALTY_ALT = "|".join(re.escape(t) for t in SPECIALTY_TERMS)
-
-# --- 1. emergent triage ------------------------------------------------------------------
-
-_EMERGENT_PATTERNS = [
-    r"\bchest pain\b.*\b(now|right now|currently)\b",
-    r"\b(now|right now|currently)\b.*\bchest pain\b",
-    r"\bcan'?t breathe\b|\bcannot breathe\b|\btrouble breathing right now\b",
-    r"\bsuicid|\bkill(ing)? myself\b|\bend(ing)? my life\b|\bself[- ]harm\b",
-    r"\boverdosed?\b.*\b(just|now|today)\b",
-    r"\bstroke\b.*\b(having|right now)\b|\bface (is )?droop",
-    r"\bsevere allergic reaction\b|\banaphyla",
-    r"\bunconscious\b|\bpassed out\b|\bnot breathing\b",
-    r"\b911\b|\bemergency\b.*\bnow\b",
-]
-
-
-def triage(question: str) -> str:
-    """Return the safety flag for the raw turn: 'emergent' | 'urgent' | 'none'."""
-    low = question.lower()
-    for pat in _EMERGENT_PATTERNS:
-        if re.search(pat, low):
-            return "emergent"
-    # Urgent (raises the confidence bar, docs/06) — symptom-now phrasing short of emergent.
-    if re.search(r"\b(severe|worst|intense)\b.*\b(pain|bleeding|headache)\b", low):
-        return "urgent"
-    return "none"
-
 
 # --- 2. tier-0 keyword fast path -----------------------------------------------------------
 
@@ -93,8 +68,8 @@ Reply with ONLY the label, nothing else."""
 
 def route(question: str, gateway: ModelGateway) -> tuple[str | None, float, str]:
     """Classify the turn. Returns (intent, intent_conf, safety_flag)."""
-    safety = triage(question)
-    if safety == "emergent":
+    safety = classify_safety(question, gateway)
+    if safety == EMERGENT:
         return SAFETY_INTENT, 1.0, safety
 
     fast = _fast_path(question)
