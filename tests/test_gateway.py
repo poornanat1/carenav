@@ -126,6 +126,34 @@ def test_classify_pii_returns_none_when_unconfigured(monkeypatch):
     assert gw.classify_pii("Hi, I'm Jordan and my DOB is 3/4/80") is None
 
 
+def test_classify_pii_cold_deployment_fails_fast_to_none(monkeypatch):
+    # A scaled-to-zero LoRA (503 DEPLOYMENT_SCALING_UP) must NOT be retried inline — warming
+    # an H200 takes minutes and would hang the turn. It reports the detector unavailable
+    # (None → caller falls back to spaCy+regex) after a single HTTP call, not a retry ladder.
+    import httpx
+
+    monkeypatch.setattr(settings, "fireworks_api_key", "fake")
+    monkeypatch.setattr(
+        settings, "pii_model", "accounts/x/models/y#accounts/x/deployments/z"
+    )
+    cold = httpx.Response(
+        503,
+        request=httpx.Request("POST", "https://api.fireworks.ai/x"),
+        json={"error": {"code": "DEPLOYMENT_SCALING_UP", "message": "scaling up"}},
+    )
+    calls = {"n": 0}
+
+    def _post(*_a, **_k):
+        calls["n"] += 1
+        return cold
+
+    monkeypatch.setattr("carenav.models.gateway.httpx.post", _post)
+    gw = ModelGateway()
+    monkeypatch.setattr(gw, "using_real_models", lambda: True)
+    assert gw.classify_pii("My name is Jane Doe") is None
+    assert calls["n"] == 1  # no retry backoff on a cold deployment
+
+
 def test_classify_pii_call_is_never_captured(monkeypatch):
     # The PII tagger's input is raw PHI by design — it must never enter captured_prompts.
     monkeypatch.setattr(settings, "pii_model", None)

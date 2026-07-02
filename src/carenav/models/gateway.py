@@ -43,6 +43,16 @@ class TransientModelError(RuntimeError):
         self.code = code
 
 
+class DeploymentColdError(RuntimeError):
+    """The PII LoRA deployment is scaled to zero and spinning up.
+
+    This is NOT retried inline: a cold H200 deployment takes minutes to warm, and blocking
+    a member's turn on it (via the transient-backoff ladder) hangs the request. Instead the
+    detector reports itself unavailable so redaction.detect falls back to spaCy+regex for
+    this turn — the LoRA layer re-engages on the next turn once it's warm.
+    """
+
+
 def _is_transient(exc: BaseException) -> bool:
     """Retry on rate-limit / transient server errors, not on auth/not-found/bad-request."""
     code = getattr(exc, "code", None)
@@ -254,6 +264,11 @@ class ModelGateway:
             raise TransientModelError(f"Fireworks chat timed out: {exc}", code=504) from exc
         if resp.status_code >= 400:
             msg = f"Fireworks chat failed ({resp.status_code}): {resp.text[:500]}"
+            # A scaled-to-zero deployment returns 503 DEPLOYMENT_SCALING_UP. Warming an H200
+            # takes minutes, so don't retry inline — surface it as cold so the PII detector
+            # fails over to spaCy+regex for this turn instead of hanging the request.
+            if resp.status_code == 503 and "DEPLOYMENT_SCALING_UP" in resp.text:
+                raise DeploymentColdError(msg)
             # Carry the status code so _is_transient decides: 429/5xx retry with backoff;
             # 4xx (auth/bad-request) raises through immediately (not in the transient set).
             raise TransientModelError(msg, code=resp.status_code)
@@ -443,6 +458,7 @@ def _provider_error_types() -> tuple[type[BaseException], ...]:
 _PII_DETECTOR_UNAVAILABLE: tuple[type[BaseException], ...] = (
     httpx.HTTPError,
     TransientModelError,
+    DeploymentColdError,
     json.JSONDecodeError,
     ConnectionError,
     TimeoutError,
