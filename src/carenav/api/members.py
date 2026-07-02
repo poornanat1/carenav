@@ -213,7 +213,7 @@ def list_member_summaries() -> list[MemberSummary]:
             .scalars()
             .all()
         )
-        rows = sort_synthea_members(rows)
+        rows = sort_synthea_members(list(rows))
         return [member_summary(member, i) for i, member in enumerate(rows)]
 
 

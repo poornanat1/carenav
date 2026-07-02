@@ -79,7 +79,8 @@ def list_models(client: httpx.Client) -> list[dict[str, Any]]:
     ]
     print("\nFine-tuning=true base models returned by /v1/models:")
     for model in fine_tunable:
-        caps = model.get("capabilities") if isinstance(model.get("capabilities"), dict) else {}
+        raw_caps = model.get("capabilities")
+        caps = raw_caps if isinstance(raw_caps, dict) else {}
         print(json.dumps({
             "id": _model_id(model),
             "type": _model_type(model),

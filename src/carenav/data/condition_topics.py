@@ -250,7 +250,7 @@ def topic_for(display: str | None) -> str | None:
     general-symptoms catch-all, ensure no clinical code is left unmapped); social/admin
     findings return None.
     """
-    if not is_clinical(display):
+    if not display or not is_clinical(display):
         return None
     low = display.lower()
     for kw, topic in _RULES:

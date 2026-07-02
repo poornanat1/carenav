@@ -24,7 +24,7 @@ PLANS = [
      "deductible": 1000, "oop_max": 4000, "coinsurance": 0.20},
 ]
 
-_PLAN_CYCLE = [p["plan_id"] for p in PLANS]
+_PLAN_CYCLE: list[str] = [str(p["plan_id"]) for p in PLANS]
 
 
 def assign_plan(index: int) -> str:

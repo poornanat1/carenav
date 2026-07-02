@@ -152,7 +152,9 @@ async def turn(req: TurnRequest) -> TurnResponse:
         if req.member_ref or req.member_id
         else None
     )
-    result = profile_result or await run_in_threadpool(
-        run_turn, question, _member_ref(req), gateway
+    result = (
+        profile_result
+        if profile_result is not None
+        else await run_in_threadpool(run_turn, question, _member_ref(req), gateway)
     )
     return _serialize_turn(result)

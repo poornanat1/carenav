@@ -136,6 +136,7 @@ def _render(template: str, rec: _Record) -> tuple[str, list[dict]] | None:
             cursor += len(literal)
             continue
         value = field_values[placeholder]
+        assert value is not None  # the `needed` check above skips records lacking a field
         spans.append({
             "start": cursor,
             "end": cursor + len(value),
