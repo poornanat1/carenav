@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import re
+import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
 from fastapi.concurrency import run_in_threadpool
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -30,6 +31,7 @@ from carenav.orchestrator import run_turn
 from carenav.orchestrator.contextualize import Turn, contextualize_question
 from carenav.orchestrator.state import TurnResult
 from carenav.rag.agent import Citation
+from carenav.telemetry import record_turn_event
 
 app = FastAPI(title="CareNav", version="0.1.0")
 app.add_middleware(
@@ -135,7 +137,8 @@ def _serialize_turn(result: TurnResult) -> TurnResponse:
 
 
 @app.post("/turn", response_model=TurnResponse)
-async def turn(req: TurnRequest) -> TurnResponse:
+async def turn(req: TurnRequest, background: BackgroundTasks) -> TurnResponse:
+    started = time.perf_counter()
     gateway = ModelGateway()
 
     # Resolve a follow-up into a standalone question using the prior conversation, once,
@@ -157,4 +160,8 @@ async def turn(req: TurnRequest) -> TurnResponse:
         if profile_result is not None
         else await run_in_threadpool(run_turn, question, _member_ref(req), gateway)
     )
+
+    # Telemetry runs after the response is sent (cold path, docs/11) and never raises.
+    latency_ms = int((time.perf_counter() - started) * 1000)
+    background.add_task(record_turn_event, result, latency_ms, _member_ref(req))
     return _serialize_turn(result)

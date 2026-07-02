@@ -140,7 +140,21 @@ def run_turn(
     complete subject. Fails open to the original question.
     """
     gw = gateway or ModelGateway()
+    pii_map = PiiMap()
+    result = _run_turn(question, member_ref, gw, history, pii_map)
+    # Counts only, never values — every exit path (answer or escalation) gets the turn's
+    # PII audit numbers for the telemetry event (docs/11).
+    result.pii_entity_counts = pii_map.entity_counts
+    return result
 
+
+def _run_turn(
+    question: str,
+    member_ref: str | None,
+    gw: ModelGateway,
+    history: list[_contextualize.Turn] | None,
+    pii_map: PiiMap,
+) -> TurnResult:
     # --- contextualize: resolve a follow-up into a standalone question using prior turns,
     # BEFORE redaction/routing, so every downstream node sees a self-contained subject.
     question = _contextualize.contextualize_question(question, history, gw)
@@ -148,11 +162,10 @@ def run_turn(
     # --- redact (docs/05): tokenize PII in the user's text BEFORE any model call ---
     # Everything downstream (router, plan, decompose, generate, verify, handoff) operates on
     # the REDACTED question, so no raw PHI ever reaches a model prompt or the graph state.
-    # The reversible pii_map is held here (out of band) for the single rehydrate at the end.
-    # Safety triage is unaffected: redaction targets identifiers, not symptoms.
+    # The reversible pii_map is held by run_turn (out of band) for the single rehydrate at
+    # the end. Safety triage is unaffected: redaction targets identifiers, not symptoms.
     # An authenticated member's known record values (name/dob/address/id) feed the
     # deterministic field layer — caught with certainty even if the model layer is offline.
-    pii_map = PiiMap()
     known_phi = member_phi_values(member_ref)
     question, _audit = redact(
         question, pii_map, known_values=known_phi, gateway=gw, source="user_text"

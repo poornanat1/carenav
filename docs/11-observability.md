@@ -2,6 +2,18 @@
 
 Implements spec §8. Lives in `carenav/telemetry/`. **Cold path — never blocks a turn.**
 
+## Implemented: Tier-1 turn events
+
+`carenav/telemetry` emits **one structured JSON event per served turn** from a FastAPI
+background task (after the response is sent). Each event goes to **stdout** (one JSON
+line — Railway's log viewer indexes it) and to the **`turn_event` table** in the app's
+Postgres (created lazily, checkfirst). Fields: hashed member ref, intent, safety flag,
+tier used + per-tier attempts, confidence, cost, latency, citation count, tools run,
+and PII **entity counts** from the turn's PiiMap — never question/answer bodies.
+Failures are swallowed: the stdout line already carries the data if the DB write fails.
+Dashboards run as SQL over `turn_event` (e.g. Grafana with a Postgres datasource).
+Tracing (the OTel span tree below) is the next tier and remains planned.
+
 ## Tracing
 
 - **One OpenTelemetry span tree per turn**: a span per node, per tool call, per model

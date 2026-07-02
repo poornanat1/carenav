@@ -53,6 +53,12 @@ class PiiMap:
         """token → value (read-only view for rehydration). Never log this."""
         return dict(self._value_for_token)
 
+    @property
+    def entity_counts(self) -> dict[str, int]:
+        """entity type → distinct values tokenized. Counts only — safe to log/export
+        (the PII audit metric, docs/11); values and tokens never leave this object."""
+        return dict(self._counter)
+
 
 def tokenize(text: str, spans: list[Span], pii_map: PiiMap) -> str:
     """Replace each detected span with its stable token; returns the redacted text.

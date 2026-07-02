@@ -88,3 +88,6 @@ class TurnResult:
     rag_answers: list[RagAnswer] = field(default_factory=list)
     tools_run: list[str] = field(default_factory=list)          # executed specialist tools
     tier_attempts: list[TierAttempt] = field(default_factory=list)
+    # Distinct PII values tokenized this turn, by entity type (counts only, never values).
+    # Populated by run_turn from the turn's PiiMap; feeds the telemetry PII audit metric.
+    pii_entity_counts: dict[str, int] = field(default_factory=dict)
