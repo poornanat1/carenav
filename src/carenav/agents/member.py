@@ -8,6 +8,29 @@ from carenav.agents.contracts import MemberAccountInput, MemberAccountOutput
 from carenav.agents.session import resolve_member_ref
 from carenav.data.db import session_scope
 from carenav.data.models import Accumulator, Member, Plan
+from carenav.redaction import entities as E
+
+
+def member_phi_values(member_ref: str | None) -> dict[str, str]:
+    """The resolved member's PHI field values, for the deterministic redaction layer.
+
+    docs/05: values CareNav itself injects (name/dob/address/member_id) can be redacted
+    with certainty before any NER/regex guesswork. Empty when the ref doesn't resolve —
+    the model + regex layers still carry the gate.
+    """
+    member_id = resolve_member_ref(member_ref)
+    if member_id is None:
+        return {}
+    with session_scope() as session:
+        member = session.get(Member, member_id)
+        if member is None:
+            return {}
+        return {
+            E.NAME: member.name,
+            E.DOB: member.dob.isoformat(),
+            E.ADDRESS: member.address,
+            E.MEMBER_ID: member.member_id,
+        }
 
 
 def member_account(inp: MemberAccountInput) -> MemberAccountOutput:

@@ -57,6 +57,21 @@ class HandoffPacket:
 
 
 @dataclass
+class TierAttempt:
+    """One scored tier attempt inside _answer_at_tiers (eval telemetry, docs/09).
+
+    Records the composite confidence each tier achieved so the eval harness can replay
+    the tau_low/tau_high selection rule offline (the threshold sweep, docs/06) without
+    re-running the suite per threshold.
+    """
+
+    tier: str                           # "small" | "frontier"
+    confidence: float                   # ConfidenceBreakdown.weighted_sum() for the attempt
+    grounded: bool
+    cost_usd: float                     # ledger delta attributable to this attempt
+
+
+@dataclass
 class TurnResult:
     question: str
     intent: str | None
@@ -71,3 +86,5 @@ class TurnResult:
     safety_flag: str                    # none | urgent | emergent
     cost_usd: float
     rag_answers: list[RagAnswer] = field(default_factory=list)
+    tools_run: list[str] = field(default_factory=list)          # executed specialist tools
+    tier_attempts: list[TierAttempt] = field(default_factory=list)

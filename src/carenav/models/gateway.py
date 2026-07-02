@@ -46,15 +46,23 @@ class TransientModelError(RuntimeError):
 def _is_transient(exc: BaseException) -> bool:
     """Retry on rate-limit / transient server errors, not on auth/not-found/bad-request."""
     code = getattr(exc, "code", None)
+    if code is None:
+        # The Mistral SDK's MistralError exposes the status only via its raw httpx
+        # response; without this, Mistral 429s were never retried.
+        code = getattr(getattr(exc, "raw_response", None), "status_code", None)
     # 429 rate limit; 500/503 server error; 504 gateway timeout — all worth retrying.
     return code in (429, 500, 503, 504)
 
 
 # Bounded exponential backoff for rate limits (docs/06: "retries with backoff").
+# 6 attempts / 40s max wait: strict per-second provider limits (Mistral small tier)
+# outlast a 4-attempt ladder when calls run concurrently, and a spuriously exhausted
+# retry inside the eval suite reads as a case failure — or, on a safety-critical case,
+# a false missed-escalation gate trip.
 _retry_transient = retry(
     retry=retry_if_exception(_is_transient),
-    wait=wait_exponential(multiplier=1, min=2, max=20),
-    stop=stop_after_attempt(4),
+    wait=wait_exponential(multiplier=1, min=2, max=40),
+    stop=stop_after_attempt(6),
     reraise=True,
 )
 
@@ -286,8 +294,17 @@ class ModelGateway:
         model = model or settings.pii_model
         if model is None or not self.using_real_models():
             return None  # not configured / offline → caller falls back to spaCy+regex
+        # Route by the PII model's OWN provider, not the generation backend: the deployed
+        # LoRA is a Fireworks route ("accounts/...#deployment") even when generation runs
+        # on Mistral. Sending a Fireworks route to the Mistral API 400s ("Invalid model")
+        # and silently drops the model detection layer.
+        is_fireworks_route = model.startswith("accounts/")
+        if is_fireworks_route and not settings.fireworks_api_key:
+            return None  # detector's provider not configured → layers 1+3 carry the gate
+        if not is_fireworks_route and not settings.mistral_api_key:
+            return None
         try:
-            if self.backend_name() == "fireworks-apikey":
+            if is_fireworks_route:
                 spans, in_tok, out_tok, latency = self._fireworks_classify_pii(text, model)
             else:
                 spans, in_tok, out_tok, latency = self._mistral_classify_pii(text, model)
@@ -423,7 +440,7 @@ def _provider_error_types() -> tuple[type[BaseException], ...]:
 # fails safe to the spaCy+regex fallback. Anything outside this set (e.g. an AttributeError
 # from a real bug in span resolution) propagates so a code defect can't silently disable the
 # gate.
-_PII_DETECTOR_UNAVAILABLE = (
+_PII_DETECTOR_UNAVAILABLE: tuple[type[BaseException], ...] = (
     httpx.HTTPError,
     TransientModelError,
     json.JSONDecodeError,

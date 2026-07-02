@@ -20,7 +20,12 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from carenav.agents import ProviderSearchInput, provider_search, specialty_hint
+from carenav.agents import (
+    ProviderSearchInput,
+    member_phi_values,
+    provider_search,
+    specialty_hint,
+)
 from carenav.config import settings
 from carenav.models import ModelGateway
 from carenav.orchestrator import contextualize as _contextualize
@@ -30,8 +35,10 @@ from carenav.orchestrator import tools as _tools
 from carenav.orchestrator import verify as _verify
 from carenav.orchestrator.state import (
     KB_INTENTS,
+    SAFETY_INTENT,
     ConfidenceBreakdown,
     HandoffPacket,
+    TierAttempt,
     TurnResult,
 )
 from carenav.rag import retrieval
@@ -51,27 +58,35 @@ def _handoff(question, intent, answers, reason, safety) -> HandoffPacket:
     )
 
 
-def _escalate(question, intent, subs, answers, conf, reason, safety, tier, cost) -> TurnResult:
+def _escalate(question, intent, subs, answers, conf, reason, safety, tier, cost,
+              tools_run=None, tier_attempts=None) -> TurnResult:
     return TurnResult(
         question=question, intent=intent, sub_questions=subs, answer="",
         citations=[], grounded=False, escalated=True,
         handoff=_handoff(question, intent, answers, reason, safety),
         confidence=conf, tier_used=tier, safety_flag=safety, cost_usd=cost,
         rag_answers=answers,
+        tools_run=tools_run or [], tier_attempts=tier_attempts or [],
     )
 
 
-def _redact_sources(sources: list[Hit], pii_map: PiiMap, gw: ModelGateway) -> None:
+def _redact_sources(
+    sources: list[Hit], pii_map: PiiMap, gw: ModelGateway,
+    known_values: dict[str, str] | None = None,
+) -> None:
     """Redact PII in each tool-output source's text in place (docs/05).
 
     Tool facts can carry member PHI (names, etc.); they must be tokenized before reaching
     the generator or re-entering graph state. Hit is frozen, so we swap in a redacted copy.
     Reuses the turn's pii_map so tokens are consistent with the redacted question.
+    ``known_values`` feeds the deterministic field layer with the resolved member's record.
     """
     for i, hit in enumerate(sources):
         if not hit.text:
             continue
-        redacted, _ = redact(hit.text, pii_map, gateway=gw, source="tool_output")
+        redacted, _ = redact(
+            hit.text, pii_map, known_values=known_values, gateway=gw, source="tool_output"
+        )
         if redacted != hit.text:
             sources[i] = replace(hit, text=redacted)
 
@@ -135,11 +150,23 @@ def run_turn(
     # the REDACTED question, so no raw PHI ever reaches a model prompt or the graph state.
     # The reversible pii_map is held here (out of band) for the single rehydrate at the end.
     # Safety triage is unaffected: redaction targets identifiers, not symptoms.
+    # An authenticated member's known record values (name/dob/address/id) feed the
+    # deterministic field layer — caught with certainty even if the model layer is offline.
     pii_map = PiiMap()
-    question, _audit = redact(question, pii_map, gateway=gw, source="user_text")
+    known_phi = member_phi_values(member_ref)
+    question, _audit = redact(
+        question, pii_map, known_values=known_phi, gateway=gw, source="user_text"
+    )
 
     # --- route (safety triage + intent) ---
     intent, intent_conf, safety = _router.route(question, gw)
+
+    # A paraphrased emergency can slip past the regex triage but still be caught by the
+    # LLM classifier ("emergency" intent). Treat it as emergent either way — the
+    # missed-escalation hard gate (docs/09) says a false positive is acceptable; a miss
+    # is not.
+    if intent == SAFETY_INTENT:
+        safety = "emergent"
 
     def escalate_unanswered(reason: str, conf: ConfidenceBreakdown) -> TurnResult:
         # Escalate before any answer exists (no sub-questions/answers gathered yet).
@@ -173,26 +200,29 @@ def run_turn(
             )
         # Redact tool-output PII BEFORE it re-enters state / reaches the generator (docs/05).
         # Reuse the turn's pii_map so a value tokenized in the question keeps the same token.
-        _redact_sources(tool_run.sources, pii_map, gw)
+        _redact_sources(tool_run.sources, pii_map, gw, known_values=known_phi)
 
     # --- decompose (comparatives → per-subject sub-questions) ---
     subs = _decompose.decompose(question, gw)
 
     bar = settings.tau_high if safety == "urgent" else settings.tau_low
+    tools_run = list(tool_run.outputs.keys())
 
     # Try the small tier, then escalate to frontier only if it misses the confidence bar.
-    answers, text, citations, grounded, conf, tier = _answer_at_tiers(
+    answers, text, citations, grounded, conf, tier, attempts = _answer_at_tiers(
         question, subs, kb_intent, tool_run, intent_conf, bar, gw
     )
     if conf.weighted_sum() < bar:
         return _escalate(question, intent, subs, answers, conf,
                          "low_conf_high_stakes" if safety == "urgent" else "groundedness_fail",
-                         safety, "human", gw.ledger.total_cost_usd)
+                         safety, "human", gw.ledger.total_cost_usd,
+                         tools_run=tools_run, tier_attempts=attempts)
 
     # --- verify cited docs match the question's subject (fail safe) ---
     if not _verify.verify_citations(question, answers, gw):
         return _escalate(question, intent, subs, answers, conf,
-                         "verify_fail", safety, "human", gw.ledger.total_cost_usd)
+                         "verify_fail", safety, "human", gw.ledger.total_cost_usd,
+                         tools_run=tools_run, tier_attempts=attempts)
 
     # --- rehydrate (docs/05): the ONLY point tokens → real values, on the user-facing
     # string only. Graph state / citations / handoff keep the tokenized form.
@@ -203,6 +233,7 @@ def run_turn(
         citations=citations, grounded=grounded, escalated=False, handoff=None,
         confidence=conf, tier_used=tier, safety_flag=safety,
         cost_usd=gw.ledger.total_cost_usd, rag_answers=answers,
+        tools_run=tools_run, tier_attempts=attempts,
     )
 
 
@@ -214,24 +245,33 @@ def _answer_at_tiers(
     intent_conf: float,
     bar: float,
     gw: ModelGateway,
-) -> tuple[list[RagAnswer], str, list, bool, ConfidenceBreakdown, str]:
+) -> tuple[list[RagAnswer], str, list, bool, ConfidenceBreakdown, str, list[TierAttempt]]:
     """Answer at the small tier, retry once at the frontier tier if it misses `bar`.
 
-    Returns the best attempt's (answers, text, citations, grounded, confidence, tier_used).
-    The caller compares confidence against `bar` to decide answer vs escalate, so this never
-    raises — it just returns the frontier attempt when the small tier falls short.
+    Returns the best attempt's (answers, text, citations, grounded, confidence, tier_used)
+    plus a TierAttempt per tier tried (eval telemetry — lets the harness replay the tau
+    selection rule offline). The caller compares confidence against `bar` to decide answer
+    vs escalate, so this never raises — it just returns the frontier attempt when the small
+    tier falls short.
     """
-    result: tuple | None = None
+    result: tuple[list[RagAnswer], str, list, bool, ConfidenceBreakdown, str] | None = None
+    attempts: list[TierAttempt] = []
     for tier, model in (("small", None), ("frontier", settings.model_frontier)):
+        cost_before = gw.ledger.total_cost_usd
         answers = _answer_turn(
             question, subs, kb_intent, tool_run.sources, gw, model, plan_id=tool_run.plan_id
         )
         text, citations, grounded = _merge(answers)
         conf = _confidence(intent_conf, answers, grounded, tool_run.tool_conf)
+        attempts.append(TierAttempt(
+            tier=tier, confidence=conf.weighted_sum(), grounded=grounded,
+            cost_usd=gw.ledger.total_cost_usd - cost_before,
+        ))
         result = (answers, text, citations, grounded, conf, tier)
         if conf.weighted_sum() >= bar:
             break
-    return result  # type: ignore[return-value]  # loop runs at least once
+    assert result is not None  # the loop runs at least once
+    return (*result, attempts)
 
 
 def _answer_turn(
@@ -274,7 +314,8 @@ def _provider_turn(question, intent, intent_conf, safety, gw) -> TurnResult:
     conf = ConfidenceBreakdown(intent_conf=intent_conf, tool_conf=1.0 if out.complete else 0.0)
     if not out.providers:
         return _escalate(question, intent, [question], [], conf,
-                         "no_providers_found", safety, "human", gw.ledger.total_cost_usd)
+                         "no_providers_found", safety, "human", gw.ledger.total_cost_usd,
+                         tools_run=["provider_search"])
     lines = [
         f"{p.name}" + (f" ({p.specialty})" if p.specialty else "")
         + (f" — {p.city}, {p.state}" if p.city else "")
@@ -288,4 +329,5 @@ def _provider_turn(question, intent, intent_conf, safety, gw) -> TurnResult:
         citations=citations, grounded=True, escalated=False, handoff=None,
         confidence=conf, tier_used="none", safety_flag=safety,
         cost_usd=gw.ledger.total_cost_usd, rag_answers=[],
+        tools_run=["provider_search"],
     )

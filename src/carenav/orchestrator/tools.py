@@ -112,11 +112,14 @@ def plan_tools(question: str, intent: str | None) -> ToolPlan:
     svc = _SERVICE_RE.search(question)
     if svc:
         p.service_mention = svc.group(0)
+    claim_mention = bool(_CLAIM_RE.search(question))
     # Coverage/benefit turns, or any turn naming a benefit service, want the benefit rule —
-    # unless the turn is about a specific claim code.
+    # unless the turn is about a specific claim code, or is a claims question naming no
+    # service (a benefit lookup of nothing returns incomplete and only drags tool_conf).
     if (intent in ("coverage", "benefit") or p.service_mention) and not claim_code:
-        p.needs_benefit = True
-    if _CLAIM_RE.search(question) or claim_code:
+        if p.service_mention or not claim_mention:
+            p.needs_benefit = True
+    if claim_mention or claim_code:
         p.needs_claims = True
     if _DEDUCTIBLE_RE.search(question) or _ELIGIBILITY_RE.search(question):
         p.needs_member = True

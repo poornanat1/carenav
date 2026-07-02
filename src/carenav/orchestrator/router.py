@@ -27,7 +27,7 @@ _EMERGENT_PATTERNS = [
     r"\bchest pain\b.*\b(now|right now|currently)\b",
     r"\b(now|right now|currently)\b.*\bchest pain\b",
     r"\bcan'?t breathe\b|\bcannot breathe\b|\btrouble breathing right now\b",
-    r"\bsuicid|\bkill myself\b|\bend my life\b|\bself[- ]harm\b",
+    r"\bsuicid|\bkill(ing)? myself\b|\bend(ing)? my life\b|\bself[- ]harm\b",
     r"\boverdosed?\b.*\b(just|now|today)\b",
     r"\bstroke\b.*\b(having|right now)\b|\bface (is )?droop",
     r"\bsevere allergic reaction\b|\banaphyla",
@@ -76,13 +76,15 @@ _CLASSIFY_PROMPT = """Classify this health-plan member question into exactly ONE
 
 Labels:
 - medication: about a drug — what it does, how to take it, side effects, interactions.
-- condition_info: about a disease/condition — what it is, symptoms, diagnosis, treatment.
+- condition_info: about a NAMED disease/condition — what it is, its symptoms, how it is treated.
 - self_care: what the member should do themselves for a symptom or situation.
 - coverage: what their insurance plan covers, costs, deductibles, prior authorization.
 - benefit: plan benefit rules or claims (copays for a service, why a claim was denied).
 - provider_search: finding a doctor, specialist, or facility.
 - emergency: a medical emergency happening right now.
-- out_of_scope: none of the above (small talk, non-health, requests about other people's data).
+- out_of_scope: asking YOU to diagnose them (e.g. "what illness do I have?", "diagnose
+  this"), treatment or dosing decisions, small talk, non-health, requests about other
+  people's data. Diagnosis requests are ALWAYS out_of_scope, never condition_info.
 
 Question: {question}
 
