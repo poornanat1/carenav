@@ -10,6 +10,12 @@ of guessing.
 Pick a member, then ask about their coverage, claims, or care. All member data is
 synthetic.
 
+### 📈 [Live telemetry dashboard](https://grafana-production-ec8a.up.railway.app/d/carenav-turns/carenav-e28094-turn-telemetry)
+
+Every served turn emits a structured event ([docs/11](docs/11-observability.md)) —
+latency p50/p99, cost per turn, tier distribution, containment, and PII entities
+redacted. Anonymous viewer access; no login needed.
+
 > **Not medical advice.** CareNav navigates benefits and surfaces vetted information;
 > clinical judgment goes to humans. All member/patient data is synthetic
 > ([Synthea](https://synthetichealth.github.io/synthea/)) — never real PHI. Provider data
