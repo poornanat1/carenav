@@ -58,6 +58,9 @@ export function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | nul
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', fontWeight: 600, lineHeight: 1.4 }}>{sourceLabel(cit)}</div>
               <div style={{ fontSize: 11, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, marginTop: 2 }}>{sourceKind(cit)}</div>
+              {cit.excerpt ? (
+                <div style={{ fontSize: 12, color: 'var(--cn-subtle)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45, marginTop: 6 }}>{cit.excerpt}</div>
+              ) : null}
             </div>
             {cit.source_url ? (
               <a href={cit.source_url} target="_blank" rel="noopener noreferrer" style={actionStyle}
