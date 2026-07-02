@@ -18,19 +18,21 @@ export function MemberTab({ member }: { member: Member | null }) {
 
   return (
     <div style={tabBodyStyle}>
-      {/* Quiet white card; the brand carries in the slim gradient rule, not a color slab. */}
+      {/* Teal glass: a barely-there tint gradient over the canvas with a frosted blur;
+          the pale inner-white keyline reads as a glass edge, not an outline. */}
       <div
         style={{
-          background: 'var(--cn-card-strong)', border: '1px solid var(--cn-border-soft)',
-          borderRadius: 10, marginBottom: 16, overflow: 'hidden', boxShadow: 'var(--cn-shadow)',
+          background: 'linear-gradient(140deg, rgba(23,132,94,0.08) 0%, rgba(29,127,138,0.13) 100%)',
+          backdropFilter: 'blur(14px)',
+          WebkitBackdropFilter: 'blur(14px)',
+          border: '1px solid rgba(255,255,255,0.55)',
+          borderRadius: 12, marginBottom: 16, padding: '13px 15px',
+          boxShadow: '0 8px 24px rgba(20,60,42,0.08)',
         }}
       >
-        <div style={{ height: 3, background: 'var(--cn-grad-brand)' }} />
-        <div style={{ padding: '12px 14px' }}>
-          <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>{member.name}</div>
-          <div style={{ fontSize: 10, color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
-          <p style={{ fontSize: 11.5, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, margin: '9px 0 0', lineHeight: 1.55 }}>{detail.note}</p>
-        </div>
+        <div style={{ fontWeight: 700, fontSize: 15, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.01em' }}>{member.name}</div>
+        <div style={{ fontSize: 10, color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
+        <p style={{ fontSize: 11.5, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, margin: '9px 0 0', lineHeight: 1.55 }}>{detail.note}</p>
       </div>
 
       <Section title="Cost sharing">
