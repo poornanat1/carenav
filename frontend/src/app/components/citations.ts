@@ -4,6 +4,9 @@ export type CitationSource = {
   key: string;
   citation: Citation;
   chunkIds: string[];
+  // Distinct excerpts across every chunk grouped under this source, in citation order.
+  // A source cited from several passages contributes one excerpt per passage.
+  excerpts: string[];
 };
 
 export function sourceLabel(citation: Citation) {
@@ -47,11 +50,19 @@ export function groupCitations(citations: Citation[]) {
   const bySource = new Map<string, CitationSource>();
   for (const citation of citations) {
     const key = citationSourceKey(citation);
+    const excerpt = citation.excerpt?.trim();
     const existing = bySource.get(key);
     if (existing) {
       existing.chunkIds.push(citation.chunk_id);
+      // Dedupe: the same passage can be cited more than once — show it only once.
+      if (excerpt && !existing.excerpts.includes(excerpt)) existing.excerpts.push(excerpt);
     } else {
-      bySource.set(key, { key, citation, chunkIds: [citation.chunk_id] });
+      bySource.set(key, {
+        key,
+        citation,
+        chunkIds: [citation.chunk_id],
+        excerpts: excerpt ? [excerpt] : [],
+      });
     }
   }
   return Array.from(bySource.values());
