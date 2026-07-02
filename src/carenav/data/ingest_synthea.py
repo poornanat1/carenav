@@ -28,6 +28,15 @@ class SyntheaCSVMissing(RuntimeError):
     """Raised when the real Synthea CSV export is not present."""
 
 
+# Plausible payer denial reasons, assigned round-robin to the synthesized denied claims.
+_DENIAL_REASONS = (
+    "prior authorization required but not obtained",
+    "out-of-network provider",
+    "service not covered under the member's plan",
+    "duplicate claim submission",
+)
+
+
 def _load_plans(session) -> int:
     rows = [
         {
@@ -109,7 +118,12 @@ def _ingest_from_csv(session) -> dict[str, int]:
     # --- claims (encounters.csv) ---
     # Each encounter becomes a claim: billed = TOTAL_CLAIM_COST, paid = PAYER_COVERAGE,
     # member_responsibility = billed - paid. Service code is the encounter procedure code.
+    # Synthea encounters never model payer denials, so a deterministic subset of the
+    # unpaid claims is marked denied (with a plausible reason) so the claim-denial
+    # journey (CUJ-3, docs/09) has real records to ground against. Amounts are unchanged:
+    # denied claims were already fully member responsibility.
     claims: list[dict] = []
+    denial_count_of: dict[str, int] = {}
     enc_path = _csv_path("encounters.csv")
     if os.path.isfile(enc_path):
         with open(enc_path, newline="", encoding="utf-8") as f:
@@ -120,6 +134,15 @@ def _ingest_from_csv(session) -> dict[str, int]:
                 billed = round(_to_float(row.get("TOTAL_CLAIM_COST", "")), 2)
                 paid = round(_to_float(row.get("PAYER_COVERAGE", "")), 2)
                 resp = round(max(billed - paid, 0.0), 2)
+                status = "paid" if paid > 0 or billed == 0 else "patient_responsibility"
+                denial_reason = None
+                # Deny the FIRST substantial unpaid claim per member (deterministic — no
+                # RNG, so `make data` is reproducible), cycling through common reasons.
+                if status == "patient_responsibility" and billed >= 100.0:
+                    if denial_count_of.get(mid, 0) == 0:
+                        status = "denied"
+                        denial_reason = _DENIAL_REASONS[len(denial_count_of) % len(_DENIAL_REASONS)]
+                        denial_count_of[mid] = 1
                 claims.append({
                     "claim_id": (row.get("Id") or f"CLM-{j}").strip(),
                     "member_id": mid,
@@ -129,13 +152,17 @@ def _ingest_from_csv(session) -> dict[str, int]:
                     "allowed": billed,
                     "paid": paid,
                     "member_responsibility": resp,
-                    "status": "paid" if paid > 0 or billed == 0 else "patient_responsibility",
-                    "denial_reason": None,
+                    "status": status,
+                    "denial_reason": denial_reason,
                 })
 
     # --- accumulators: derive year-to-date member responsibility, capped at OOP max ---
+    # Denied claims don't credit the deductible/OOP accumulators (the payer rejected the
+    # charge; the member owes it outside plan cost-sharing).
     resp_by_member: dict[str, float] = {}
     for c in claims:
+        if c["status"] == "denied":
+            continue
         resp_by_member[c["member_id"]] = resp_by_member.get(c["member_id"], 0.0) + c[
             "member_responsibility"
         ]
