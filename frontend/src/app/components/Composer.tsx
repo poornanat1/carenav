@@ -77,15 +77,25 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
                   onClick={() => { setValue(sq.question); textareaRef.current?.focus(); }}
                   disabled={loading}
                   style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
                     border: `1px solid ${s.border}`, background: s.bg, color: s.text,
-                    borderRadius: 13, padding: '4px 11px',
-                    fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 400,
+                    borderRadius: 7, padding: '5px 11px',
+                    fontSize: 11, fontFamily: 'var(--font-sans)', fontWeight: 500,
                     cursor: loading ? 'not-allowed' : 'pointer',
-                    whiteSpace: 'nowrap', opacity: loading ? 0.4 : 1, transition: 'opacity 0.15s',
+                    whiteSpace: 'nowrap', opacity: loading ? 0.4 : 1,
+                    transition: 'transform 0.12s, box-shadow 0.12s, opacity 0.15s',
                   }}
-                  onMouseEnter={e => { if (!loading) e.currentTarget.style.opacity = '0.65'; }}
-                  onMouseLeave={e => { if (!loading) e.currentTarget.style.opacity = '1'; }}
+                  onMouseEnter={e => {
+                    if (loading) return;
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 3px 10px rgba(20,60,42,0.12)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
+                  <span style={{ width: 5, height: 5, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
                   {sq.label}
                 </button>
               );
@@ -127,14 +137,15 @@ export function Composer({ member, suggestions, loading, onSend, pendingQuestion
           disabled={!canSend}
           style={{
             width: 38, height: 38, borderRadius: 7,
-            background: canSend ? 'var(--cn-accent)' : 'var(--cn-surface)',
-            border: canSend ? '1px solid var(--cn-accent)' : '1px solid var(--cn-border)',
+            background: canSend ? 'var(--cn-grad-brand)' : 'var(--cn-surface)',
+            border: canSend ? 'none' : '1px solid var(--cn-border)',
+            boxShadow: canSend ? '0 3px 10px rgba(14,99,68,0.28)' : 'none',
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             cursor: canSend ? 'pointer' : 'not-allowed',
             transition: 'all 0.15s', flexShrink: 0,
           }}
-          onMouseEnter={e => { if (canSend) e.currentTarget.style.background = 'var(--cn-accent-strong)'; }}
-          onMouseLeave={e => { if (canSend) e.currentTarget.style.background = 'var(--cn-accent)'; }}
+          onMouseEnter={e => { if (canSend) e.currentTarget.style.filter = 'brightness(1.08)'; }}
+          onMouseLeave={e => { if (canSend) e.currentTarget.style.filter = 'none'; }}
         >
           <Send size={14} color={canSend ? '#ffffff' : 'var(--cn-subtle)'} />
         </button>

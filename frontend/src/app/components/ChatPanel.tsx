@@ -19,7 +19,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   if (!member) {
     return (
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'var(--cn-bg)' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
         <div
           style={{
             width: 38, height: 38, borderRadius: 8,
@@ -44,7 +44,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
 
   if (messages.length === 0) {
     return (
-      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px', background: 'var(--cn-bg)' }}>
+      <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 24px' }}>
         <div className="chat-stage" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
           <div style={{ marginBottom: 10 }}>
             <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-muted)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
@@ -59,14 +59,22 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
                   key={i}
                   onClick={() => onSuggestedClick(sq)}
                   style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 7,
                     border: `1px solid ${s.border}`, background: s.bg, color: s.text,
-                    borderRadius: 16, padding: '6px 14px',
-                    fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 400,
-                    cursor: 'pointer', transition: 'opacity 0.15s',
+                    borderRadius: 8, padding: '7px 14px',
+                    fontSize: 12, fontFamily: 'var(--font-sans)', fontWeight: 500,
+                    cursor: 'pointer', transition: 'transform 0.12s, box-shadow 0.12s',
                   }}
-                  onMouseEnter={e => (e.currentTarget.style.opacity = '0.65')}
-                  onMouseLeave={e => (e.currentTarget.style.opacity = '1')}
+                  onMouseEnter={e => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 3px 10px rgba(20,60,42,0.12)';
+                  }}
+                  onMouseLeave={e => {
+                    e.currentTarget.style.transform = 'none';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
                 >
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: s.dot, flexShrink: 0 }} />
                   {sq.label}
                 </button>
               );
@@ -83,7 +91,7 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
   return (
     <div
       className="chat-scroll"
-      style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', background: 'var(--cn-bg)', scrollbarWidth: 'none' }}
+      style={{ flex: 1, overflowY: 'auto', padding: '24px 24px', scrollbarWidth: 'none' }}
     >
       <div className="chat-stage">
         {messages.map(msg => {
@@ -92,13 +100,14 @@ export function ChatPanel({ messages, member, suggestions, onSuggestedClick }: P
               <div key={msg.id} style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', marginBottom: 22 }}>
                 <div
                   style={{
-                    background: 'var(--cn-ink)',
-                    color: 'var(--cn-card-strong)',
+                    background: 'var(--cn-grad-brand)',
+                    color: '#ffffff',
                     borderRadius: '10px 3px 10px 10px',
                     padding: '10px 15px',
                     maxWidth: 560,
                     fontSize: 14, fontFamily: 'var(--font-sans)',
                     fontWeight: 400, lineHeight: 1.55,
+                    boxShadow: '0 4px 14px rgba(14,99,68,0.18)',
                   }}
                 >
                   {msg.content}

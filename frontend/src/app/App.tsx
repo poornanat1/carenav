@@ -148,7 +148,7 @@ export default function App() {
         width: '100%',
         overflow: 'hidden',
         fontFamily: 'var(--font-sans)',
-        background: 'var(--cn-bg)',
+        background: 'var(--cn-grad-canvas)',
       }}
     >
       <TopBar

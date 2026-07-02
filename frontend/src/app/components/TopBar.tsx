@@ -14,7 +14,7 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
     <header
       style={{
         borderBottom: '1px solid rgba(244,247,242,0.14)',
-        background: 'var(--cn-ink)',
+        background: 'linear-gradient(110deg, #0f1f17 0%, #133427 55%, #0f3136 100%)',
         height: 52,
         display: 'flex',
         alignItems: 'center',

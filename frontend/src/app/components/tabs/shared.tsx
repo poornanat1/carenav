@@ -91,8 +91,8 @@ export function TopicTag({ children }: { children: React.ReactNode }) {
 export function Bar({ used, total, filled }: { used: number; total: number; filled: boolean }) {
   const pct = Math.min(100, (used / total) * 100);
   return (
-    <div style={{ height: 3, background: 'var(--cn-border)', borderRadius: 2, overflow: 'hidden', marginTop: 3 }}>
-      <div style={{ width: `${pct}%`, height: '100%', background: filled ? 'var(--cn-info)' : 'var(--cn-subtle)', borderRadius: 2, transition: 'width 0.4s' }} />
+    <div style={{ height: 4, background: 'var(--cn-border-soft)', borderRadius: 2, overflow: 'hidden', marginTop: 3 }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: filled ? 'linear-gradient(90deg, var(--cn-accent), #1d7f8a)' : 'linear-gradient(90deg, #6b8578, #7d968b)', borderRadius: 2, transition: 'width 0.4s' }} />
     </div>
   );
 }

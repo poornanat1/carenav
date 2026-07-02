@@ -1,6 +1,6 @@
 import { ShieldAlert, AlertCircle, Phone } from 'lucide-react';
 import type { TurnResponse } from '../types';
-import { handoffReasonText, labelStyle, severityOf } from './shared';
+import { BubbleLabel, handoffReasonText, severityOf } from './shared';
 
 export function EscalationBubble({ r }: { r: TurnResponse }) {
   const isEmergent = severityOf(r) === 'emergent';
@@ -19,7 +19,7 @@ export function EscalationBubble({ r }: { r: TurnResponse }) {
       };
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={{ ...labelStyle, color: pal.strong }}>CareNav · escalation</div>
+      <BubbleLabel color={pal.strong}>CareNav · escalation</BubbleLabel>
       <div
         style={{
           background: pal.soft,

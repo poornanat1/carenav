@@ -1,10 +1,10 @@
 import { AlertCircle } from 'lucide-react';
-import { labelStyle } from './shared';
+import { BubbleLabel } from './shared';
 
 export function ErrorBubble() {
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={labelStyle}>CareNav</div>
+      <BubbleLabel>CareNav</BubbleLabel>
       <div
         style={{
           background: 'var(--cn-danger-soft)',

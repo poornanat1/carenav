@@ -20,11 +20,13 @@ export function MemberTab({ member }: { member: Member | null }) {
     <div style={tabBodyStyle}>
       <div
         style={{
-          background: 'var(--cn-ink)', borderRadius: 8, padding: '12px 14px', marginBottom: 16,
+          background: 'linear-gradient(135deg, #0f3527 0%, #0e6344 62%, #14707c 100%)',
+          borderRadius: 10, padding: '13px 15px', marginBottom: 16,
+          boxShadow: '0 6px 18px rgba(14,99,68,0.22)',
         }}
       >
-        <div style={{ fontWeight: 900, fontSize: 15, color: 'var(--cn-card-strong)', fontFamily: 'var(--font-sans)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>{member.name}</div>
-        <div style={{ fontSize: 10, color: 'rgba(244,247,242,0.68)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
+        <div style={{ fontWeight: 900, fontSize: 15, color: '#ffffff', fontFamily: 'var(--font-sans)', letterSpacing: '-0.02em', textTransform: 'uppercase' }}>{member.name}</div>
+        <div style={{ fontSize: 10, color: 'rgba(244,247,242,0.82)', fontFamily: 'var(--font-mono)', marginTop: 3 }}>Age {member.age} · {member.plan}</div>
         <div style={{ marginTop: 8, padding: '7px 9px', background: 'rgba(255,255,255,0.08)', borderRadius: 5 }}>
           <p style={{ fontSize: 11, color: 'rgba(244,247,242,0.78)', fontFamily: 'var(--font-sans)', fontWeight: 400, margin: 0, lineHeight: 1.55 }}>{detail.note}</p>
         </div>

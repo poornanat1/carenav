@@ -37,7 +37,7 @@ export function RightPanel({ member, messages, activeTab, onTabChange, mobile = 
       }
     : {
         width: 348, flexShrink: 0, borderLeft: '1px solid var(--cn-border)',
-        background: 'var(--cn-bg)', display: 'flex', flexDirection: 'column', overflow: 'hidden',
+        background: 'transparent', display: 'flex', flexDirection: 'column', overflow: 'hidden',
       };
 
   const aside = (

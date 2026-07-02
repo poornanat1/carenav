@@ -42,6 +42,16 @@ export const labelStyle: React.CSSProperties = {
   marginBottom: 5,
 };
 
+// Speaker label above every assistant bubble; the gradient dot is the brand mark.
+export function BubbleLabel({ children, color }: { children: React.ReactNode; color?: string }) {
+  return (
+    <div style={{ ...labelStyle, color: color ?? labelStyle.color, display: 'flex', alignItems: 'center', gap: 5 }}>
+      <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cn-grad-brand)', flexShrink: 0 }} />
+      {children}
+    </div>
+  );
+}
+
 export function LoadingDots() {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 5, padding: '4px 0' }}>

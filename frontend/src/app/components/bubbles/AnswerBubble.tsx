@@ -1,13 +1,13 @@
 import { CheckCircle2, AlertCircle } from 'lucide-react';
 import type { Message } from '../types';
-import { CitationChips, labelStyle, renderAnswer, severityOf } from './shared';
+import { BubbleLabel, CitationChips, renderAnswer, severityOf } from './shared';
 
 export function AnswerBubble({ msg }: { msg: Message }) {
   const r = msg.response;
   const isUrgent = r ? severityOf(r) === 'urgent' : false;
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={labelStyle}>CareNav</div>
+      <BubbleLabel>CareNav</BubbleLabel>
       <div
         style={{
           background: 'var(--cn-card-strong)',

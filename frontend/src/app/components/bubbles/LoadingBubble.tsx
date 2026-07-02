@@ -1,9 +1,9 @@
-import { labelStyle, LoadingDots } from './shared';
+import { BubbleLabel, LoadingDots } from './shared';
 
 export function LoadingBubble() {
   return (
     <div style={{ marginBottom: 22 }}>
-      <div style={labelStyle}>CareNav</div>
+      <BubbleLabel>CareNav</BubbleLabel>
       <div
         style={{
           background: 'var(--cn-card-strong)',
