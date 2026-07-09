@@ -143,6 +143,10 @@ class Settings(BaseSettings):
         default=None, description="Fine-tuned Fireworks PII-detection model id."
     )
     # Base model the PII detector is fine-tuned from via Fireworks managed SFT.
+    # llama-v3p1-8b: fits on a single GPU, so the fine-tuned LoRA is cheap to serve on a
+    # dedicated deployment. (Fireworks has NO serverless LoRA-addon serving — every
+    # fine-tuned model needs a dedicated GPU — and serverless bases like glm-5p1 that would
+    # avoid that require 16+ GPUs, absurd for a small PII classifier. So: small base + 1 GPU.)
     pii_base_model: str = Field(default="accounts/fireworks/models/llama-v3p1-8b-instruct")
     pii_output_model: str = Field(default="carenav-pii-detector")
     pii_train_epochs: int = Field(default=1)
