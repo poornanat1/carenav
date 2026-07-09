@@ -35,4 +35,10 @@ class EvalConfig:
     # parallelism beat fast-and-429'd. Raise via EVAL_CONCURRENCY on higher quota.
     concurrency: int = field(
         default_factory=lambda: int(os.getenv("EVAL_CONCURRENCY", "2")))
+    # The tau sweep re-runs each sweepable case with BOTH tiers forced (2 generation calls
+    # per case), landing as a second Mistral wave right after the main pass. At the main
+    # concurrency that burst exhausted the per-window quota and 429'd cases out of the tau
+    # sample. Default 1 (serial) keeps the sweep under the rate limit; raise on higher quota.
+    sweep_concurrency: int = field(
+        default_factory=lambda: int(os.getenv("EVAL_SWEEP_CONCURRENCY", "1")))
     allow_degraded_judge: bool = False

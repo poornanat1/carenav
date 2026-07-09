@@ -211,17 +211,27 @@ def main(argv: list[str] | None = None) -> int:
         if sweepable:
             print(f"Sweep: re-running {len(sweepable)} sweepable cases with both tiers forced")
 
+            sweep_excluded: list[str] = []
+
             def final_turn(fc: FilledCase) -> TurnResult | None:
                 try:
                     return _run_turns(fc)[0]
                 except Exception as e:
                     print(f"  sweep: {fc.case.id} failed ({e}) — excluded")
+                    sweep_excluded.append(fc.case.id)
                     return None
 
             attempts = _sweep.collect_attempts(
-                sweepable, final_turn, concurrency=config.concurrency
+                sweepable, final_turn, concurrency=config.sweep_concurrency
             )
             sweep_rows = _sweep.sweep(attempts, config.sweep_grid)
+            if sweep_excluded:
+                # A silently shrunk sweep sample biases the tau recommendation, so make the
+                # coverage loss visible rather than letting it read as "all cases swept".
+                print(
+                    f"Sweep excluded {len(sweep_excluded)}/{len(sweepable)} cases "
+                    f"(likely rate-limited): {', '.join(sorted(sweep_excluded))}"
+                )
 
     # --- gates → exit code ---
     hard_fail = metrics.missed_escalation_count > 0 or metrics.pii_leak_count > 0
