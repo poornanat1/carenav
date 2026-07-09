@@ -18,9 +18,15 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
   return (
     <div
       style={{
+<<<<<<< Updated upstream
         borderBottom: '1px solid var(--cn-border)',
         background: 'var(--cn-panel)',
         padding: '8px 16px',
+=======
+        borderBottom: '1px solid rgba(14,14,9,0.1)',
+        background: 'var(--cn-panel)',
+        padding: '10px 12px',
+>>>>>>> Stashed changes
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -104,7 +110,11 @@ export function MemberSelector({ members, selected, onSelect }: Props) {
               <div
                 style={{
                   fontSize: 10,
+<<<<<<< Updated upstream
                   color: isSelected ? 'var(--cn-accent-strong)' : 'var(--cn-muted)',
+=======
+                  color: isSelected ? 'var(--cn-accent)' : 'rgba(14,14,9,0.45)',
+>>>>>>> Stashed changes
                   fontFamily: 'var(--font-mono)',
                   marginTop: 2,
                 }}
