@@ -89,19 +89,12 @@ jobs:
           make data
           pg_dump -Fc -h localhost -p 5433 -U carenav -d carenav -f data_artifacts/db.dump
 
-      # PII_MODEL is intentionally UNSET as of 2026-07-09: Fireworks dedicated-deployment
-      # provisioning was failing account-wide with `code: INTERNAL` during model-server
-      # init (reproduced on A100/H100/H200, small and large models — a platform incident,
-      # not our config). Fireworks has no serverless LoRA-addon serving, so a fine-tuned
-      # detector *requires* a dedicated GPU; with provisioning broken there is no way to
-      # serve it. The suite runs on the field + regex layers meanwhile (no PHI leak; see
-      # src/carenav/redaction/detect.py). To restore the ML layer once Fireworks recovers:
-      #   1. Create a single-A100 base deployment on llama-v3p1-8b-instruct with
-      #      enableAddons=true, minReplicaCount=0, maxReplicaCount=1 (NOT 0 — the original
-      #      outage was maxReplicaCount:0, which can never scale up), scaleToZeroWindow=300s.
-      #   2. Deploy addon carenav-pii-detector-20260614000936 onto it (deployedModels).
-      #   3. Set the PII_MODEL repo variable to <model>#<deployment> and re-run.
-      # (Do NOT use glm-5p1: it needs 16+ GPUs — unusable for a single-GPU PII classifier.)
+      # The PII detector runs on a dedicated 1-GPU deployment (Fireworks has no serverless
+      # LoRA-addon serving) with scale-to-zero, so this step warms it before the suite. The
+      # deployment MUST have maxReplicaCount>=1 — a maxReplicaCount:0 deployment reads READY
+      # but can never scale up, so every warm-up attempt 404s and this gate fails. If the
+      # deployment is lost, note that A100/H100 provisioning was failing on 2026-07-09 and
+      # H200 was the shape that came up; glm-5p1 is NOT an option (needs 16+ GPUs).
       - name: Warm the PII detector deployment (scales to zero when idle)
         if: env.PII_MODEL != ''
         run: |
