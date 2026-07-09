@@ -200,6 +200,10 @@ class ModelGateway:
     def generate(self, prompt: str, *, model: str | None = None, label: str = "") -> GenerateResult:
         """Generate text at `model` (defaults to the small tier). Records cost."""
         model = model or settings.model_small
+        if not model:
+            # A blank model (e.g. MODEL_SMALL="") would reach the provider as an empty model
+            # param → 400. Fail loudly on the misconfig rather than emit a confusing 400.
+            raise RuntimeError("No generation model configured (model_small is empty).")
         if self.capture_prompts:
             self.captured_prompts.append({"label": label, "model": model, "prompt": prompt})
 
@@ -307,7 +311,12 @@ class ModelGateway:
         still recorded in the ledger (token counts only, no content).
         """
         model = model or settings.pii_model
-        if model is None or not self.using_real_models():
+        # `not model` (not `model is None`): an unset PII_MODEL repo/env variable arrives as
+        # "" (pydantic reads an empty env var as an empty string, not None), which must be
+        # treated as "not configured". Otherwise "" falls through, fails the accounts/ prefix
+        # test, and gets sent to Mistral as an empty model → 400 "Missing model parameter" on
+        # every turn instead of a clean fall back to the field+regex layers.
+        if not model or not self.using_real_models():
             return None  # not configured / offline → caller falls back to spaCy+regex
         # Route by the PII model's OWN provider, not the generation backend: the deployed
         # LoRA is a Fireworks route ("accounts/...#deployment") even when generation runs

@@ -126,6 +126,23 @@ def test_classify_pii_returns_none_when_unconfigured(monkeypatch):
     assert gw.classify_pii("Hi, I'm Jordan and my DOB is 3/4/80") is None
 
 
+def test_classify_pii_treats_empty_model_as_unconfigured(monkeypatch):
+    # An unset PII_MODEL repo/env variable arrives as "" (pydantic reads a blank env var as
+    # an empty string, not None). "" must fall back cleanly, NOT get sent to Mistral as an
+    # empty model param → 400 "Missing model parameter" on every turn. Guard is `not model`.
+    monkeypatch.setattr(settings, "pii_model", "")
+    monkeypatch.setattr(settings, "mistral_api_key", "real-key")
+    monkeypatch.setattr(settings, "fireworks_api_key", "real-key")
+    gw = ModelGateway()
+
+    def _fail_if_called(*a, **k):  # a real provider call here would 400
+        raise AssertionError("empty pii_model must not reach any provider")
+
+    monkeypatch.setattr(gw, "_mistral_classify_pii", _fail_if_called)
+    monkeypatch.setattr(gw, "_fireworks_classify_pii", _fail_if_called)
+    assert gw.classify_pii("Hi, I'm Jordan and my DOB is 3/4/80") is None
+
+
 def test_classify_pii_cold_deployment_fails_fast_to_none(monkeypatch):
     # A scaled-to-zero LoRA (503 DEPLOYMENT_SCALING_UP) must NOT be retried inline — warming
     # an H200 takes minutes and would hang the turn. It reports the detector unavailable
