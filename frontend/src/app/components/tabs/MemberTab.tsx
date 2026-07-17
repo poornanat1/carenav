@@ -18,14 +18,14 @@ export function MemberTab({ member }: { member: Member | null }) {
 
   return (
     <div style={tabBodyStyle}>
-      {/* Teal glass: a barely-there tint gradient over the canvas with a frosted blur;
-          the pale inner-white keyline reads as a glass edge, not an outline. */}
+      {/* Teal glass: a barely-there tint gradient over the canvas with a frosted blur,
+          edged with a soft green keyline to match the accent used across the app. */}
       <div
         style={{
           background: 'linear-gradient(140deg, rgba(23,132,94,0.08) 0%, rgba(29,127,138,0.13) 100%)',
           backdropFilter: 'blur(14px)',
           WebkitBackdropFilter: 'blur(14px)',
-          border: '1px solid rgba(255,255,255,0.55)',
+          border: '1px solid rgba(23,132,94,0.55)',
           borderRadius: 12, marginBottom: 16, padding: '13px 15px',
           boxShadow: '0 8px 24px rgba(20,60,42,0.08)',
         }}
