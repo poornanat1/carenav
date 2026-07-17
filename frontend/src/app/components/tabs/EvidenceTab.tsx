@@ -31,54 +31,88 @@ export function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | nul
     </div>
   );
 
+  // Understated text-link action, no chrome — reads like a byline note in a column.
   const actionStyle: React.CSSProperties = {
-    display: 'flex', alignItems: 'center', gap: 4, flexShrink: 0,
-    fontSize: 11, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 500,
-    textDecoration: 'none', cursor: 'pointer', background: 'none',
-    padding: '3px 8px', borderRadius: 5, border: '1px solid var(--cn-border)', transition: 'color 0.15s',
+    display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0,
+    fontSize: 10, letterSpacing: '0.06em', textTransform: 'uppercase',
+    color: 'var(--cn-muted)', fontFamily: 'var(--font-mono)', fontWeight: 500,
+    textDecoration: 'none', cursor: 'pointer', background: 'none', border: 'none',
+    padding: 0, transition: 'color 0.15s',
   };
 
   return (
     <div style={tabBodyStyle}>
-      <div style={{ fontSize: 13, fontFamily: 'var(--font-sans)', fontWeight: 600, color: 'var(--cn-ink)', marginBottom: 10 }}>
-        Sources{' '}
-        <span style={{ fontWeight: 400, color: 'var(--cn-muted)' }}>
-          · {sources.length} cited in the latest answer
-        </span>
+      {/* Masthead: broadsheet-style top rule + tracked all-caps label. */}
+      <div style={{ borderTop: '2px solid var(--cn-ink)', paddingTop: 8, marginBottom: 4 }}>
+        <div style={{
+          display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+          fontFamily: 'var(--font-mono)', fontSize: 11, letterSpacing: '0.14em',
+          textTransform: 'uppercase', color: 'var(--cn-ink)', fontWeight: 600,
+        }}>
+          <span>Sources</span>
+          <span style={{ color: 'var(--cn-muted)', fontWeight: 400, letterSpacing: '0.1em' }}>
+            {sources.length} cited
+          </span>
+        </div>
+        <div style={{ borderBottom: '1px solid var(--cn-border)', marginTop: 8 }} />
       </div>
+
       {sources.map((source, i) => {
         const cit = source.citation;
+        const action = cit.source_url ? (
+          <a href={cit.source_url} target="_blank" rel="noopener noreferrer" style={actionStyle}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--cn-ink)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--cn-muted)')}
+          >
+            <ExternalLink size={10} /> Open
+          </a>
+        ) : isInternalDoc(cit) ? (
+          <button onClick={() => setOpenDocId(citationDocId(cit))} style={actionStyle}
+            onMouseEnter={e => (e.currentTarget.style.color = 'var(--cn-ink)')}
+            onMouseLeave={e => (e.currentTarget.style.color = 'var(--cn-muted)')}
+          >
+            <BookOpen size={10} /> View
+          </button>
+        ) : null;
+
         return (
         // Chunk ids are retrieval internals; keep them reachable on hover, not in the layout.
-        <div key={source.key} title={source.chunkIds.join(', ')} style={{ background: 'var(--cn-card-strong)', border: '1px solid var(--cn-border-soft)', borderRadius: 8, padding: '12px 13px', marginBottom: 8, boxShadow: 'var(--cn-shadow)' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 9 }}>
-            <div style={{ width: 18, height: 18, borderRadius: '50%', background: 'var(--cn-accent-soft)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
-              <span style={{ fontSize: 9, fontFamily: 'var(--font-mono)', color: 'var(--cn-accent-strong)', fontWeight: 600 }}>{i + 1}</span>
-            </div>
+        // No card box — hairline rules separate entries like columns in a reference page.
+        <article key={source.key} title={source.chunkIds.join(', ')} style={{
+          padding: '16px 0',
+          borderBottom: i < sources.length - 1 ? '1px solid var(--cn-border-soft)' : 'none',
+        }}>
+          {/* Footnote-style header: 01 · TITLE — KIND, with the action tucked to the right. */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 8 }}>
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 500, color: 'var(--cn-accent-strong)', flexShrink: 0 }}>
+              {String(i + 1).padStart(2, '0')}
+            </span>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, color: 'var(--cn-ink)', fontFamily: 'var(--font-sans)', fontWeight: 600, lineHeight: 1.4 }}>{sourceLabel(cit)}</div>
-              <div style={{ fontSize: 11, color: 'var(--cn-muted)', fontFamily: 'var(--font-sans)', fontWeight: 400, marginTop: 2 }}>{sourceKind(cit)}</div>
-              {source.excerpts.map((excerpt, j) => (
-                <div key={j} style={{ fontSize: 12, color: 'var(--cn-subtle)', fontFamily: 'var(--font-sans)', fontWeight: 400, lineHeight: 1.45, marginTop: 6, paddingLeft: source.excerpts.length > 1 ? 8 : 0, borderLeft: source.excerpts.length > 1 ? '2px solid var(--cn-border-soft)' : 'none' }}>{excerpt}</div>
-              ))}
+              <div style={{
+                fontFamily: 'var(--font-display)', fontSize: 15, fontWeight: 700,
+                color: 'var(--cn-ink)', lineHeight: 1.25, letterSpacing: '-0.01em',
+              }}>
+                {sourceLabel(cit)}
+              </div>
+              <div style={{
+                fontFamily: 'var(--font-mono)', fontSize: 10, letterSpacing: '0.1em',
+                textTransform: 'uppercase', color: 'var(--cn-muted)', fontWeight: 400, marginTop: 4,
+              }}>
+                {sourceKind(cit)}
+              </div>
             </div>
-            {cit.source_url ? (
-              <a href={cit.source_url} target="_blank" rel="noopener noreferrer" style={actionStyle}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--cn-ink)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--cn-muted)')}
-              >
-                <ExternalLink size={10} /> Open
-              </a>
-            ) : isInternalDoc(cit) ? (
-              <button onClick={() => setOpenDocId(citationDocId(cit))} style={actionStyle}
-                onMouseEnter={e => (e.currentTarget.style.color = 'var(--cn-ink)')}
-                onMouseLeave={e => (e.currentTarget.style.color = 'var(--cn-muted)')}
-              >
-                <BookOpen size={10} /> View
-              </button>
-            ) : null}
+            {action && <div style={{ flexShrink: 0, alignSelf: 'flex-start', marginTop: 3 }}>{action}</div>}
           </div>
-        </div>
+          {/* Column body — the "article" text. First para carries no rule; extras get a hairline. */}
+          {source.excerpts.map((excerpt, j) => (
+            <p key={j} style={{
+              fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--cn-text)', fontWeight: 400,
+              lineHeight: 1.62, textAlign: 'left', margin: j === 0 ? 0 : '10px 0 0',
+              paddingLeft: source.excerpts.length > 1 ? 10 : 0,
+              borderLeft: source.excerpts.length > 1 ? '1px solid var(--cn-border-soft)' : 'none',
+            }}>{excerpt}</p>
+          ))}
+        </article>
         );
       })}
       {openDocId && <KbDocViewer docId={openDocId} onClose={() => setOpenDocId(null)} />}
