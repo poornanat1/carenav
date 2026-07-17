@@ -148,11 +148,7 @@ export default function App() {
         width: '100%',
         overflow: 'hidden',
         fontFamily: 'var(--font-sans)',
-<<<<<<< Updated upstream
         background: 'var(--cn-grad-canvas)',
-=======
-        background: 'var(--cn-bg)',
->>>>>>> Stashed changes
       }}
     >
       <TopBar

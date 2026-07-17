@@ -13,13 +13,8 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
   return (
     <header
       style={{
-<<<<<<< Updated upstream
         borderBottom: '1px solid rgba(244,247,242,0.14)',
         background: 'linear-gradient(110deg, #0f1f17 0%, #133427 55%, #0f3136 100%)',
-=======
-        borderBottom: '1px solid rgba(14,14,9,0.12)',
-        background: 'var(--cn-ink)',
->>>>>>> Stashed changes
         height: 52,
         display: 'flex',
         alignItems: 'center',
@@ -29,17 +24,10 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-<<<<<<< Updated upstream
         <Activity size={14} color="#58b98b" strokeWidth={2} />
         <span
           style={{
             color: 'var(--cn-card-strong)',
-=======
-        <Activity size={14} color="var(--cn-accent)" strokeWidth={2} />
-        <span
-          style={{
-            color: 'var(--cn-bg)',
->>>>>>> Stashed changes
             fontFamily: 'var(--font-display)',
             fontWeight: 900,
             fontSize: 17,
@@ -85,13 +73,8 @@ export function TopBar({ onReset, hasConversation, apiOnline, isMobile = false, 
               width: 6,
               height: 6,
               borderRadius: '50%',
-<<<<<<< Updated upstream
               background: apiOnline ? '#58b98b' : '#ff8a8f',
               boxShadow: apiOnline ? '0 0 6px rgba(88,185,139,0.72)' : '0 0 6px rgba(255,138,143,0.5)',
-=======
-              background: apiOnline ? 'var(--cn-accent)' : 'var(--cn-danger)',
-              boxShadow: apiOnline ? '0 0 6px rgba(78,122,78,0.7)' : '0 0 6px rgba(160,48,48,0.45)',
->>>>>>> Stashed changes
             }}
           />
           {!isMobile && (
