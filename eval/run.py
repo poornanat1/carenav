@@ -134,13 +134,24 @@ def run_case(
     )
 
 
-def _select_cases(cujs: list[str] | None, limit: int | None):
+def _select_cases(cujs: list[str] | None, limit: int | None,
+                  exclude: list[str] | None = None):
     cases = ALL_CASES
     if cujs:
         wanted = {c.upper() for c in cujs}
         cases = [c for c in cases if c.cuj.upper() in wanted or c.id.upper() in wanted]
         if not cases:
             raise SystemExit(f"no cases match {sorted(wanted)}")
+    if exclude:
+        drop = {c.upper() for c in exclude}
+        kept = [c for c in cases if c.cuj.upper() not in drop and c.id.upper() not in drop]
+        removed = [c.id for c in cases if c.id not in {k.id for k in kept}]
+        if removed:
+            # Surfaced (not silent) so a degraded run's coverage gap is auditable in the log.
+            print(f"NOTE: excluding {len(removed)} case(s): {', '.join(sorted(removed))}")
+        cases = kept
+        if not cases:
+            raise SystemExit(f"--exclude {sorted(drop)} removed every selected case")
     return cases[:limit] if limit else cases
 
 
@@ -164,6 +175,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = ArgumentParser(description="Run the golden CUJ eval suite (docs/09).")
     parser.add_argument("--cuj", action="append", default=None,
                         help="Run only this CUJ or case id (repeatable), e.g. CUJ-6 or CUJ-9a.")
+    parser.add_argument("--exclude", action="append", default=None,
+                        help="Skip this CUJ or case id (repeatable), e.g. CUJ-9b. Used when the "
+                             "fine-tuned PII layer is unavailable and model-only probes cannot "
+                             "be fairly judged.")
     parser.add_argument("--limit", type=int, default=None, help="Cap the number of cases.")
     parser.add_argument("--concurrency", type=int, default=None)
     parser.add_argument("--no-sweep", action="store_true", help="Skip the tau sweep phase.")
@@ -181,7 +196,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.allow_degraded_judge:
         config.allow_degraded_judge = True
 
-    cases = _select_cases(args.cuj, args.limit)
+    cases = _select_cases(args.cuj, args.limit, args.exclude)
     if args.check:
         preflight(cases)
         return 0

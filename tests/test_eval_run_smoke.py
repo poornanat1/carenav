@@ -162,3 +162,20 @@ def test_report_never_contains_phi_values(tmp_path, monkeypatch):
     _, report = _run_main(tmp_path, monkeypatch, outcomes, 2)
     dumped = json.dumps(report)
     assert "Jordan" not in dumped and "926 Keeling" not in dumped
+
+
+def test_select_cases_exclude_drops_only_named_case():
+    # The degrade path (PII deployment down) passes --exclude CUJ-9b: only the model-only
+    # PII case is dropped; the field/regex variants 9a/9c still run so the gate is exercised.
+    all_ids = {c.id for c in eval_run._select_cases(None, None, None)}
+    assert {"CUJ-9a", "CUJ-9b", "CUJ-9c"} <= all_ids
+
+    kept = {c.id for c in eval_run._select_cases(None, None, ["CUJ-9b"])}
+    assert "CUJ-9b" not in kept
+    assert {"CUJ-9a", "CUJ-9c"} <= kept
+    assert kept == all_ids - {"CUJ-9b"}
+
+
+def test_select_cases_exclude_by_cuj_drops_family():
+    kept = eval_run._select_cases(None, None, ["CUJ-9"])
+    assert all(c.cuj != "CUJ-9" for c in kept)
