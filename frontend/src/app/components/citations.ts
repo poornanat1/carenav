@@ -68,21 +68,36 @@ export function groupCitations(citations: Citation[]) {
   return Array.from(bySource.values());
 }
 
-export function citationRefMap(citations: Citation[]) {
-  const refs = new Map<string, { citation: Citation; index: number }>();
-  const sourceIndexes = new Map<string, number>();
-  groupCitations(citations).forEach((source, index) => sourceIndexes.set(source.key, index + 1));
+// A citation reference resolves to a source ("1") and, when that source is cited from
+// more than one passage, the specific passage within it ("1-2"). Passage index is the
+// 1-based position of this chunk's excerpt in the grouped source's deduped excerpts, so
+// the inline marker points at the exact paragraph shown in the Evidence panel.
+export type CitationRef = {
+  citation: Citation;
+  sourceIndex: number;
+  passageIndex: number; // 1-based; 0 when the source has no distinct passages
+  label: string;        // "1", or "1-2" when the source is multi-passage
+};
+
+export function citationRefMap(citations: Citation[]): Map<string, CitationRef> {
+  const refs = new Map<string, CitationRef>();
+  const sources = groupCitations(citations);
+  const byKey = new Map(sources.map((s, i) => [s.key, { source: s, index: i + 1 }]));
   citations.forEach(citation => {
-    refs.set(citation.chunk_id, {
-      citation,
-      index: sourceIndexes.get(citationSourceKey(citation)) ?? 1,
-    });
+    const entry = byKey.get(citationSourceKey(citation));
+    const sourceIndex = entry?.index ?? 1;
+    const excerpt = citation.excerpt?.trim();
+    // Multi-passage sources get a passage suffix; single-passage sources stay "1".
+    const multi = (entry?.source.excerpts.length ?? 0) > 1;
+    const passageIndex = multi && excerpt ? entry!.source.excerpts.indexOf(excerpt) + 1 : 0;
+    const label = passageIndex > 0 ? `${sourceIndex}-${passageIndex}` : `${sourceIndex}`;
+    refs.set(citation.chunk_id, { citation, sourceIndex, passageIndex, label });
   });
   return refs;
 }
 
-export function citationTooltip(citation: Citation | undefined, index: number) {
-  if (!citation) return `Source ${index}`;
-  const heading = `${sourceLabel(citation)}\n${citation.chunk_id}`;
+export function citationTooltip(citation: Citation | undefined, label: string) {
+  if (!citation) return `Source ${label}`;
+  const heading = `${label} · ${sourceLabel(citation)}\n${citation.chunk_id}`;
   return citation.excerpt ? `${heading}\n\n${citation.excerpt}` : heading;
 }

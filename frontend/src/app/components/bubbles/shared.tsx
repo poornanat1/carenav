@@ -77,17 +77,18 @@ export function LoadingDots() {
   );
 }
 
-function CitationMarker({ index, citation }: { index: number; citation?: Citation }) {
+function CitationMarker({ label, citation }: { label: string; citation?: Citation }) {
   return (
     <sup
-      title={citationTooltip(citation, index)}
+      title={citationTooltip(citation, label)}
       style={{
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        width: 14,
+        minWidth: 14,
         height: 14,
-        borderRadius: '50%',
+        padding: '0 4px',
+        borderRadius: 7,
         background: 'var(--cn-accent-soft)',
         color: 'var(--cn-accent-strong)',
         fontSize: 8,
@@ -95,9 +96,10 @@ function CitationMarker({ index, citation }: { index: number; citation?: Citatio
         fontWeight: 500,
         verticalAlign: 'super',
         marginLeft: 1,
+        whiteSpace: 'nowrap',
       }}
     >
-      {index}
+      {label}
     </sup>
   );
 }
@@ -123,7 +125,7 @@ export function renderAnswer(text: string, citations: Citation[]): React.ReactNo
         const found = byChunkId.get(match[2]);
         if (found) {
           parts.push(
-            <CitationMarker key={k++} index={found.index} citation={found.citation} />
+            <CitationMarker key={k++} label={found.label} citation={found.citation} />
           );
         }
       } else {

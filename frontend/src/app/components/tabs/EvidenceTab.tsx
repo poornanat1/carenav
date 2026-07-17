@@ -103,15 +103,28 @@ export function EvidenceTab({ lastResponse }: { lastResponse: TurnResponse | nul
             </div>
             {action && <div style={{ flexShrink: 0, alignSelf: 'flex-start', marginTop: 3 }}>{action}</div>}
           </div>
-          {/* Column body — the "article" text. First para carries no rule; extras get a hairline. */}
-          {source.excerpts.map((excerpt, j) => (
-            <p key={j} style={{
-              fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--cn-text)', fontWeight: 400,
-              lineHeight: 1.62, textAlign: 'left', margin: j === 0 ? 0 : '10px 0 0',
-              paddingLeft: source.excerpts.length > 1 ? 10 : 0,
-              borderLeft: source.excerpts.length > 1 ? '1px solid var(--cn-border-soft)' : 'none',
-            }}>{excerpt}</p>
-          ))}
+          {/* Column body. A single-passage source reads as one paragraph; a multi-passage
+              source labels each passage 1-1, 1-2… to match the inline citation markers, so
+              the reader can trace a specific marker to its exact paragraph. */}
+          {source.excerpts.map((excerpt, j) => {
+            const multi = source.excerpts.length > 1;
+            return (
+              <div key={j} style={{ display: 'flex', gap: 8, margin: j === 0 ? 0 : '12px 0 0' }}>
+                {multi && (
+                  <span style={{
+                    fontFamily: 'var(--font-mono)', fontSize: 10, fontWeight: 500,
+                    color: 'var(--cn-accent-strong)', flexShrink: 0, marginTop: 3,
+                  }}>
+                    {i + 1}-{j + 1}
+                  </span>
+                )}
+                <p style={{
+                  fontFamily: 'var(--font-sans)', fontSize: 13, color: 'var(--cn-text)', fontWeight: 400,
+                  lineHeight: 1.62, textAlign: 'left', margin: 0, flex: 1, minWidth: 0,
+                }}>{excerpt}</p>
+              </div>
+            );
+          })}
         </article>
         );
       })}
