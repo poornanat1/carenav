@@ -10,7 +10,7 @@ of guessing.
 Pick a member, then ask about their coverage, claims, or care. All member data is
 synthetic.
 
-### 📈 [Live telemetry dashboard](https://grafana-production-ec8a.up.railway.app/d/carenav-turns/carenav-e28094-turn-telemetry)
+### 📈 [Live telemetry dashboard](https://grafana-production-ec8a.up.railway.app/d/carenav-turns/carenav-e28094-turn-telemetry?orgId=1&from=now-1y&to=now&timezone=browser&refresh=1m)
 
 Every served turn emits a structured event ([docs/11](docs/11-observability.md)) —
 latency p50/p99, cost per turn, tier distribution, containment, and PII entities
